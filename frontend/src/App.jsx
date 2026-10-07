@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
+import { createTheme, ThemeProvider } from '@mui/material/styles'
 
 // Pages
 import HomePage from './pages/HomePage'
@@ -26,37 +27,70 @@ import ManagePricing from './pages/admin/ManagePricing'
 import ManageUsers from './pages/admin/ManageUsers'
 import Reports from './pages/admin/Reports'
 
+const theme = createTheme({
+  palette: {
+    primary:   { main: '#2563eb', light: '#60a5fa', dark: '#1d4ed8' },
+    secondary: { main: '#7c3aed', light: '#a78bfa', dark: '#5b21b6' },
+    success:   { main: '#059669', light: '#34d399', dark: '#047857' },
+    warning:   { main: '#d97706', light: '#fbbf24', dark: '#b45309' },
+    error:     { main: '#dc2626', light: '#f87171', dark: '#b91c1c' },
+    info:      { main: '#0891b2', light: '#22d3ee', dark: '#0e7490' },
+    background: { default: '#f0f4ff', paper: '#ffffff' },
+  },
+  typography: {
+    fontFamily: 'Roboto, sans-serif',
+    h4: { fontWeight: 700 },
+    h5: { fontWeight: 700 },
+    h6: { fontWeight: 600 },
+  },
+  shape: { borderRadius: 10 },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: { textTransform: 'none', fontWeight: 600, borderRadius: 8 },
+      },
+    },
+    MuiCard: {
+      styleOverrides: {
+        root: { borderRadius: 12, boxShadow: '0 2px 12px rgba(0,0,0,0.08)' },
+      },
+    },
+    MuiChip: {
+      styleOverrides: { root: { fontWeight: 500 } },
+    },
+  },
+})
+
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
+    <ThemeProvider theme={theme}>
+      <AuthProvider>
+        <Router>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
 
-          {/* Customer Routes */}
-          <Route path="/customer/dashboard" element={<CustomerDashboard />} />
-          <Route path="/customer/vehicles" element={<VehicleManagement />} />
-          <Route path="/customer/search" element={<SearchParking />} />
-          <Route path="/customer/history" element={<ReservationHistory />} />
+            <Route path="/customer/dashboard" element={<CustomerDashboard />} />
+            <Route path="/customer/vehicles" element={<VehicleManagement />} />
+            <Route path="/customer/search" element={<SearchParking />} />
+            <Route path="/customer/history" element={<ReservationHistory />} />
 
-          {/* Staff Routes */}
-          <Route path="/staff/dashboard" element={<StaffDashboard />} />
-          <Route path="/staff/checkin" element={<CheckIn />} />
-          <Route path="/staff/checkout" element={<CheckOut />} />
+            <Route path="/staff/dashboard" element={<StaffDashboard />} />
+            <Route path="/staff/checkin" element={<CheckIn />} />
+            <Route path="/staff/checkout" element={<CheckOut />} />
 
-          {/* Admin Routes */}
-          <Route path="/admin/dashboard" element={<AdminDashboard />} />
-          <Route path="/admin/parking-lots" element={<ManageParkingLots />} />
-          <Route path="/admin/zones" element={<ManageZones />} />
-          <Route path="/admin/slots" element={<ManageSlots />} />
-          <Route path="/admin/pricing" element={<ManagePricing />} />
-          <Route path="/admin/users" element={<ManageUsers />} />
-          <Route path="/admin/reports" element={<Reports />} />
-        </Routes>
-      </Router>
-    </AuthProvider>
+            <Route path="/admin/dashboard" element={<AdminDashboard />} />
+            <Route path="/admin/parking-lots" element={<ManageParkingLots />} />
+            <Route path="/admin/zones" element={<ManageZones />} />
+            <Route path="/admin/slots" element={<ManageSlots />} />
+            <Route path="/admin/pricing" element={<ManagePricing />} />
+            <Route path="/admin/users" element={<ManageUsers />} />
+            <Route path="/admin/reports" element={<Reports />} />
+          </Routes>
+        </Router>
+      </AuthProvider>
+    </ThemeProvider>
   )
 }
 
