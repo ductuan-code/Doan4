@@ -73,35 +73,52 @@ function Layout({ children }) {
     navigate('/login')
   }
 
+  const sidebarBg = {
+    Customer: 'linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)',
+    Staff:    'linear-gradient(180deg, #059669 0%, #047857 100%)',
+    Admin:    'linear-gradient(180deg, #7c3aed 0%, #5b21b6 100%)',
+  }
+
   const drawer = (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: '#1a237e' }}>
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', background: sidebarBg[user?.role] || sidebarBg.Customer }}>
       {/* Logo */}
       <Box sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 1.5 }}>
-        <LocalParkingIcon sx={{ color: 'white', fontSize: 32 }} />
-        <Typography variant="h6" fontWeight={700} color="white" lineHeight={1.2}>
-          Bãi Đỗ Xe
-        </Typography>
+        <Box sx={{ bgcolor: 'rgba(255,255,255,0.2)', borderRadius: 2, p: 0.8, display: 'flex' }}>
+          <LocalParkingIcon sx={{ color: 'white', fontSize: 28 }} />
+        </Box>
+        <Box>
+          <Typography variant="h6" fontWeight={700} color="white" lineHeight={1.1}>
+            ParkingLot
+          </Typography>
+          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+            Hệ thống bãi đỗ xe
+          </Typography>
+        </Box>
       </Box>
 
       {/* User info */}
       <Box sx={{ px: 2, pb: 2 }}>
-        <Box sx={{ bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 2, p: 2 }}>
-          <Typography variant="subtitle2" color="white" fontWeight={600} noWrap>
-            {user?.name}
-          </Typography>
-          <Chip
-            label={roleLabel[user?.role]}
-            size="small"
-            color={roleColor[user?.role]}
-            sx={{ mt: 0.5 }}
-          />
+        <Box sx={{ bgcolor: 'rgba(255,255,255,0.15)', borderRadius: 2, p: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box sx={{ bgcolor: 'rgba(255,255,255,0.3)', borderRadius: '50%', width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Typography fontWeight={700} color="white" fontSize={16}>
+              {user?.name?.charAt(0)}
+            </Typography>
+          </Box>
+          <Box>
+            <Typography variant="subtitle2" color="white" fontWeight={600} noWrap>
+              {user?.name}
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.75)' }}>
+              {roleLabel[user?.role]}
+            </Typography>
+          </Box>
         </Box>
       </Box>
 
-      <Divider sx={{ borderColor: 'rgba(255,255,255,0.15)' }} />
+      <Divider sx={{ borderColor: 'rgba(255,255,255,0.15)', mx: 2 }} />
 
       {/* Menu items */}
-      <List sx={{ flex: 1, px: 1, py: 2 }}>
+      <List sx={{ flex: 1, px: 1.5, py: 2 }}>
         {items.map((item) => {
           const isActive = location.pathname === item.path
           return (
@@ -112,16 +129,24 @@ function Layout({ children }) {
                 onClick={() => setMobileOpen(false)}
                 sx={{
                   borderRadius: 2,
-                  color: isActive ? '#1a237e' : 'rgba(255,255,255,0.8)',
+                  color: isActive ? '#1d4ed8' : 'rgba(255,255,255,0.85)',
                   bgcolor: isActive ? 'white' : 'transparent',
+                  py: 1.2,
                   '&:hover': {
-                    bgcolor: isActive ? 'white' : 'rgba(255,255,255,0.1)',
-                    color: isActive ? '#1a237e' : 'white',
-                  }
+                    bgcolor: isActive ? 'white' : 'rgba(255,255,255,0.12)',
+                    color: isActive ? '#1d4ed8' : 'white',
+                  },
+                  transition: 'all 0.2s',
                 }}
               >
-                <ListItemIcon sx={{ color: 'inherit', minWidth: 40 }}>{item.icon}</ListItemIcon>
-                <ListItemText primary={item.text} primaryTypographyProps={{ fontWeight: isActive ? 600 : 400 }} />
+                <ListItemIcon sx={{ color: 'inherit', minWidth: 38 }}>{item.icon}</ListItemIcon>
+                <ListItemText
+                  primary={item.text}
+                  primaryTypographyProps={{ fontWeight: isActive ? 700 : 400, fontSize: 14 }}
+                />
+                {isActive && (
+                  <Box sx={{ width: 4, height: 24, bgcolor: '#2563eb', borderRadius: 2 }} />
+                )}
               </ListItemButton>
             </ListItem>
           )
@@ -129,15 +154,20 @@ function Layout({ children }) {
       </List>
 
       {/* Logout */}
-      <Divider sx={{ borderColor: 'rgba(255,255,255,0.15)' }} />
-      <List sx={{ px: 1, py: 1 }}>
+      <Divider sx={{ borderColor: 'rgba(255,255,255,0.15)', mx: 2 }} />
+      <List sx={{ px: 1.5, py: 1.5 }}>
         <ListItem disablePadding>
           <ListItemButton
             onClick={handleLogout}
-            sx={{ borderRadius: 2, color: 'rgba(255,255,255,0.8)', '&:hover': { bgcolor: 'rgba(255,0,0,0.2)', color: 'white' } }}
+            sx={{
+              borderRadius: 2,
+              color: 'rgba(255,255,255,0.85)',
+              '&:hover': { bgcolor: 'rgba(239,68,68,0.25)', color: '#fca5a5' },
+              transition: 'all 0.2s',
+            }}
           >
-            <ListItemIcon sx={{ color: 'inherit', minWidth: 40 }}><LogoutIcon /></ListItemIcon>
-            <ListItemText primary="Đăng xuất" />
+            <ListItemIcon sx={{ color: 'inherit', minWidth: 38 }}><LogoutIcon /></ListItemIcon>
+            <ListItemText primary="Đăng xuất" primaryTypographyProps={{ fontSize: 14 }} />
           </ListItemButton>
         </ListItem>
       </List>
@@ -176,7 +206,7 @@ function Layout({ children }) {
       </Drawer>
 
       {/* Main content */}
-      <Box component="main" sx={{ flexGrow: 1, p: 3, mt: { xs: 8, md: 0 }, bgcolor: '#f5f6fa', minHeight: '100vh' }}>
+      <Box component="main" sx={{ flexGrow: 1, p: 3, mt: { xs: 8, md: 0 }, bgcolor: '#f0f4ff', minHeight: '100vh' }}>
         {children}
       </Box>
     </Box>
