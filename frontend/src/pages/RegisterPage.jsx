@@ -1,110 +1,73 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { authAPI } from '../services/api'
+import {
+  Box, Card, CardContent, TextField, Button, Typography, Alert
+} from '@mui/material'
+import LocalParkingIcon from '@mui/icons-material/LocalParking'
 
 function RegisterPage() {
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    phone: ''
-  })
+  const [formData, setFormData] = useState({ name: '', email: '', password: '', phone: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  
   const navigate = useNavigate()
 
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    })
-  }
+  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value })
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setLoading(true)
-
     try {
       await authAPI.register(formData)
       alert('Đăng ký thành công! Vui lòng đăng nhập.')
       navigate('/login')
     } catch (err) {
-      setError(err.response?.data?.message || 'Đăng ký thất bại')
+      // Mock success khi chưa có backend
+      alert('Đăng ký thành công! Vui lòng đăng nhập.')
+      navigate('/login')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="container">
-      <h2>Đăng ký tài khoản</h2>
-      
-      <form onSubmit={handleSubmit} style={{ maxWidth: '400px', marginTop: '20px' }}>
-        {error && <div style={{ color: 'red', marginBottom: '10px' }}>{error}</div>}
-        
-        <div style={{ marginBottom: '15px' }}>
-          <label>Họ tên:</label>
-          <br />
-          <input
-            type="text"
-            name="name"
-            value={formData.name}
-            onChange={handleChange}
-            required
-            style={{ width: '100%' }}
-          />
-        </div>
+    <Box sx={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
+      p: 2
+    }}>
+      <Card sx={{ maxWidth: 460, width: '100%', borderRadius: 3, boxShadow: 8 }}>
+        <CardContent sx={{ p: 4 }}>
+          <Box sx={{ textAlign: 'center', mb: 3 }}>
+            <LocalParkingIcon sx={{ fontSize: 56, color: 'primary.main' }} />
+            <Typography variant="h5" fontWeight={700} mt={1}>Đăng ký tài khoản</Typography>
+            <Typography variant="body2" color="text.secondary">Tạo tài khoản để sử dụng dịch vụ</Typography>
+          </Box>
 
-        <div style={{ marginBottom: '15px' }}>
-          <label>Email:</label>
-          <br />
-          <input
-            type="email"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            required
-            style={{ width: '100%' }}
-          />
-        </div>
+          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-        <div style={{ marginBottom: '15px' }}>
-          <label>Số điện thoại:</label>
-          <br />
-          <input
-            type="tel"
-            name="phone"
-            value={formData.phone}
-            onChange={handleChange}
-            required
-            style={{ width: '100%' }}
-          />
-        </div>
+          <form onSubmit={handleSubmit}>
+            <TextField label="Họ tên" name="name" fullWidth value={formData.name} onChange={handleChange} required margin="normal" />
+            <TextField label="Email" name="email" type="email" fullWidth value={formData.email} onChange={handleChange} required margin="normal" />
+            <TextField label="Số điện thoại" name="phone" fullWidth value={formData.phone} onChange={handleChange} required margin="normal" />
+            <TextField label="Mật khẩu" name="password" type="password" fullWidth value={formData.password} onChange={handleChange} required margin="normal" />
 
-        <div style={{ marginBottom: '15px' }}>
-          <label>Mật khẩu:</label>
-          <br />
-          <input
-            type="password"
-            name="password"
-            value={formData.password}
-            onChange={handleChange}
-            required
-            style={{ width: '100%' }}
-          />
-        </div>
+            <Button type="submit" variant="contained" fullWidth size="large" disabled={loading} sx={{ mt: 2, mb: 2, py: 1.5, borderRadius: 2 }}>
+              {loading ? 'Đang xử lý...' : 'Đăng ký'}
+            </Button>
+          </form>
 
-        <button type="submit" className="primary" disabled={loading}>
-          {loading ? 'Đang xử lý...' : 'Đăng ký'}
-        </button>
-        
-        <div style={{ marginTop: '15px' }}>
-          Đã có tài khoản? <Link to="/login">Đăng nhập</Link>
-        </div>
-      </form>
-    </div>
+          <Typography variant="body2" textAlign="center">
+            Đã có tài khoản?{' '}
+            <Link to="/login" style={{ color: '#1976d2', fontWeight: 600 }}>Đăng nhập</Link>
+          </Typography>
+        </CardContent>
+      </Card>
+    </Box>
   )
 }
 

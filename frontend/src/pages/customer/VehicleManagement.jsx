@@ -1,208 +1,179 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import Layout from '../../components/Layout'
 import { vehicleAPI } from '../../services/api'
+import {
+  Box, Typography, Button, Card, Table, TableBody, TableCell,
+  TableContainer, TableHead, TableRow, Paper, Dialog, DialogTitle,
+  DialogContent, DialogActions, TextField, Select, MenuItem,
+  FormControl, InputLabel, Chip, Alert, IconButton, Tooltip
+} from '@mui/material'
+import AddIcon from '@mui/icons-material/Add'
+import EditIcon from '@mui/icons-material/Edit'
+import DeleteIcon from '@mui/icons-material/Delete'
+import DirectionsCarIcon from '@mui/icons-material/DirectionsCar'
+import TwoWheelerIcon from '@mui/icons-material/TwoWheeler'
 
 function VehicleManagement() {
   const [vehicles, setVehicles] = useState([])
   const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
+  const [openDialog, setOpenDialog] = useState(false)
   const [editingId, setEditingId] = useState(null)
-  const [formData, setFormData] = useState({
-    plateNumber: '',
-    vehicleType: 'MOTORBIKE'
-  })
+  const [formData, setFormData] = useState({ plateNumber: '', vehicleType: 'MOTORBIKE' })
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    loadVehicles()
-  }, [])
+  useEffect(() => { loadVehicles() }, [])
 
   const loadVehicles = async () => {
     try {
       const response = await vehicleAPI.getAll()
       setVehicles(response.data)
-    } catch (err) {
-      console.error('Error loading vehicles:', err)
+    } catch {
+      // mock data khi chưa có backend
+      setVehicles([
+        { id: 1, plateNumber: '29A-12345', vehicleType: 'MOTORBIKE' },
+        { id: 2, plateNumber: '30B-67890', vehicleType: 'CAR' },
+      ])
     } finally {
       setLoading(false)
     }
   }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
+  const handleOpenDialog = (vehicle = null) => {
+    if (vehicle) {
+      setEditingId(vehicle.id)
+      setFormData({ plateNumber: vehicle.plateNumber, vehicleType: vehicle.vehicleType })
+    } else {
+      setEditingId(null)
+      setFormData({ plateNumber: '', vehicleType: 'MOTORBIKE' })
+    }
     setError('')
+    setOpenDialog(true)
+  }
 
+  const handleSubmit = async () => {
+    if (!formData.plateNumber.trim()) {
+      setError('Vui lòng nhập biển số xe')
+      return
+    }
     try {
       if (editingId) {
         await vehicleAPI.update(editingId, formData)
       } else {
         await vehicleAPI.create(formData)
       }
-      
       loadVehicles()
-      resetForm()
+      setOpenDialog(false)
     } catch (err) {
       setError(err.response?.data?.message || 'Có lỗi xảy ra')
     }
   }
 
-  const handleEdit = (vehicle) => {
-    setEditingId(vehicle.id)
-    setFormData({
-      plateNumber: vehicle.plateNumber,
-      vehicleType: vehicle.vehicleType
-    })
-    setShowForm(true)
-  }
-
   const handleDelete = async (id) => {
     if (!window.confirm('Bạn có chắc muốn xóa phương tiện này?')) return
-
     try {
       await vehicleAPI.delete(id)
-      loadVehicles()
+      setVehicles(vehicles.filter(v => v.id !== id))
     } catch (err) {
       alert(err.response?.data?.message || 'Không thể xóa phương tiện')
     }
   }
 
-  const resetForm = () => {
-    setFormData({ plateNumber: '', vehicleType: 'MOTORBIKE' })
-    setEditingId(null)
-    setShowForm(false)
-    setError('')
-  }
-
   return (
-    <div className="container">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-        <h1>Quản lý Phương tiện</h1>
-        <Link to="/customer/dashboard">
-          <button className="secondary">← Quay lại</button>
-        </Link>
-      </div>
+    <Layout>
+      <Box>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Typography variant="h5" fontWeight={700}>Quản lý Phương tiện</Typography>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenDialog()} sx={{ borderRadius: 2 }}>
+            Thêm phương tiện
+          </Button>
+        </Box>
 
-      <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h3>Danh sách xe của bạn</h3>
-          {!showForm && (
-            <button className="primary" onClick={() => setShowForm(true)}>
-              + Thêm phương tiện
-            </button>
-          )}
-        </div>
+        <Card sx={{ borderRadius: 3, boxShadow: 2 }}>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow sx={{ bgcolor: '#f5f6fa' }}>
+                  <TableCell fontWeight={600}><strong>STT</strong></TableCell>
+                  <TableCell><strong>Biển số xe</strong></TableCell>
+                  <TableCell><strong>Loại xe</strong></TableCell>
+                  <TableCell align="center"><strong>Thao tác</strong></TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {loading ? (
+                  <TableRow><TableCell colSpan={4} align="center" sx={{ py: 4 }}>Đang tải...</TableCell></TableRow>
+                ) : vehicles.length === 0 ? (
+                  <TableRow><TableCell colSpan={4} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                    Chưa có phương tiện nào. Hãy thêm xe của bạn!
+                  </TableCell></TableRow>
+                ) : vehicles.map((vehicle, index) => (
+                  <TableRow key={vehicle.id} hover>
+                    <TableCell>{index + 1}</TableCell>
+                    <TableCell>
+                      <Typography fontWeight={600}>{vehicle.plateNumber}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        icon={vehicle.vehicleType === 'CAR' ? <DirectionsCarIcon /> : <TwoWheelerIcon />}
+                        label={vehicle.vehicleType === 'CAR' ? 'Ô tô' : 'Xe máy'}
+                        color={vehicle.vehicleType === 'CAR' ? 'primary' : 'secondary'}
+                        size="small"
+                        variant="outlined"
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      <Tooltip title="Chỉnh sửa">
+                        <IconButton color="primary" onClick={() => handleOpenDialog(vehicle)}>
+                          <EditIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Xóa">
+                        <IconButton color="error" onClick={() => handleDelete(vehicle.id)}>
+                          <DeleteIcon />
+                        </IconButton>
+                      </Tooltip>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Card>
 
-        {showForm && (
-          <div className="card" style={{ backgroundColor: '#f9f9f9', marginBottom: '20px' }}>
-            <h3>{editingId ? 'Chỉnh sửa phương tiện' : 'Thêm phương tiện mới'}</h3>
-            
-            <form onSubmit={handleSubmit}>
-              {error && (
-                <div style={{ 
-                  padding: '12px', 
-                  backgroundColor: '#ffebee', 
-                  color: '#c62828', 
-                  borderRadius: '8px', 
-                  marginBottom: '15px' 
-                }}>
-                  {error}
-                </div>
-              )}
-
-              <div style={{ marginBottom: '15px' }}>
-                <label>Biển số xe *</label>
-                <input
-                  type="text"
-                  value={formData.plateNumber}
-                  onChange={(e) => setFormData({...formData, plateNumber: e.target.value})}
-                  placeholder="VD: 29A-12345"
-                  required
-                  style={{ width: '100%' }}
-                />
-              </div>
-
-              <div style={{ marginBottom: '20px' }}>
-                <label>Loại xe *</label>
-                <select
-                  value={formData.vehicleType}
-                  onChange={(e) => setFormData({...formData, vehicleType: e.target.value})}
-                  style={{ width: '100%' }}
-                >
-                  <option value="MOTORBIKE">Xe máy</option>
-                  <option value="CAR">Ô tô</option>
-                </select>
-              </div>
-
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button type="submit" className="primary">
-                  {editingId ? 'Cập nhật' : 'Thêm mới'}
-                </button>
-                <button type="button" className="secondary" onClick={resetForm}>
-                  Hủy
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {loading ? (
-          <p>Đang tải...</p>
-        ) : vehicles.length === 0 ? (
-          <p style={{ textAlign: 'center', color: '#757575', padding: '40px' }}>
-            Chưa có phương tiện nào. Hãy thêm xe của bạn!
-          </p>
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Biển số</th>
-                <th>Loại xe</th>
-                <th>Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              {vehicles.map((vehicle) => (
-                <tr key={vehicle.id}>
-                  <td style={{ fontWeight: 600 }}>{vehicle.plateNumber}</td>
-                  <td>
-                    <span style={{
-                      padding: '4px 12px',
-                      borderRadius: '12px',
-                      fontSize: '13px',
-                      backgroundColor: vehicle.vehicleType === 'CAR' ? '#e3f2fd' : '#f3e5f5',
-                      color: vehicle.vehicleType === 'CAR' ? '#1976d2' : '#7b1fa2'
-                    }}>
-                      {vehicle.vehicleType === 'CAR' ? 'Ô tô' : 'Xe máy'}
-                    </span>
-                  </td>
-                  <td>
-                    <button 
-                      onClick={() => handleEdit(vehicle)}
-                      style={{ 
-                        padding: '6px 16px', 
-                        marginRight: '8px',
-                        backgroundColor: '#1976d2',
-                        color: 'white',
-                        fontSize: '14px'
-                      }}
-                    >
-                      Sửa
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(vehicle.id)}
-                      className="danger"
-                      style={{ padding: '6px 16px', fontSize: '14px' }}
-                    >
-                      Xóa
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-    </div>
+        {/* Dialog thêm/sửa */}
+        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>{editingId ? 'Chỉnh sửa phương tiện' : 'Thêm phương tiện mới'}</DialogTitle>
+          <DialogContent>
+            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+            <TextField
+              label="Biển số xe"
+              fullWidth
+              value={formData.plateNumber}
+              onChange={(e) => setFormData({ ...formData, plateNumber: e.target.value })}
+              placeholder="VD: 29A-12345"
+              margin="normal"
+            />
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Loại xe</InputLabel>
+              <Select
+                value={formData.vehicleType}
+                label="Loại xe"
+                onChange={(e) => setFormData({ ...formData, vehicleType: e.target.value })}
+              >
+                <MenuItem value="MOTORBIKE">Xe máy</MenuItem>
+                <MenuItem value="CAR">Ô tô</MenuItem>
+              </Select>
+            </FormControl>
+          </DialogContent>
+          <DialogActions sx={{ p: 2, gap: 1 }}>
+            <Button onClick={() => setOpenDialog(false)}>Hủy</Button>
+            <Button variant="contained" onClick={handleSubmit}>
+              {editingId ? 'Cập nhật' : 'Thêm mới'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
+    </Layout>
   )
 }
 

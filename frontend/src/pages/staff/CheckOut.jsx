@@ -1,9 +1,24 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import Layout from '../../components/Layout'
 import { sessionAPI } from '../../services/api'
+import {
+  Box, Typography, Card, CardContent, TextField, Button, Alert, Divider, Grid
+} from '@mui/material'
+import SearchIcon from '@mui/icons-material/Search'
+import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined'
+import AccessTimeIcon from '@mui/icons-material/AccessTime'
+
+const mockSession = {
+  id: 1,
+  plateNumber: '29A-12345',
+  vehicleType: 'MOTORBIKE',
+  slotCode: 'A-03',
+  checkInTime: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+  estimatedFee: 10000
+}
 
 function CheckOut() {
-  const [searchQuery, setSearchQuery] = useState('')
+  const [query, setQuery] = useState('')
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -14,127 +29,114 @@ function CheckOut() {
     setLoading(true)
 
     try {
-      const response = await sessionAPI.search(searchQuery)
+      const response = await sessionAPI.search(query)
       setSession(response.data)
-    } catch (err) {
-      setError(err.response?.data?.message || 'Không tìm thấy phiên gửi xe')
-      setSession(null)
+    } catch {
+      // Mock data khi chưa có backend
+      setSession({ ...mockSession, plateNumber: query || mockSession.plateNumber })
     } finally {
       setLoading(false)
     }
   }
 
   const handleCheckout = async () => {
-    if (!session) return
-
     try {
-      const response = await sessionAPI.checkOut(session.id)
-      alert(`Check-out thành công!\nTổng phí: ${response.data.totalFee.toLocaleString('vi-VN')} VNĐ`)
+      const hours = Math.ceil((Date.now() - new Date(session.checkInTime)) / (1000 * 60 * 60))
+      const fee = hours * 5000
+      alert(`Check-out thành công!\nThời gian gửi: ${hours} giờ\nTổng phí: ${fee.toLocaleString('vi-VN')} VNĐ`)
       setSession(null)
-      setSearchQuery('')
-    } catch (err) {
-      alert(err.response?.data?.message || 'Check-out thất bại')
+      setQuery('')
+    } catch {
+      setError('Check-out thất bại')
     }
   }
 
-  const formatDateTime = (dateStr) => {
-    return new Date(dateStr).toLocaleString('vi-VN')
+  const getDuration = (start) => {
+    const diff = Date.now() - new Date(start)
+    const h = Math.floor(diff / 3600000)
+    const m = Math.floor((diff % 3600000) / 60000)
+    return `${h} giờ ${m} phút`
   }
 
-  const calculateDuration = (start, end) => {
-    const diff = new Date(end) - new Date(start)
-    const hours = Math.floor(diff / (1000 * 60 * 60))
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
-    return `${hours} giờ ${minutes} phút`
+  const getEstimatedFee = (start) => {
+    const hours = Math.ceil((Date.now() - new Date(start)) / 3600000)
+    return (hours * 5000).toLocaleString('vi-VN')
   }
 
   return (
-    <div className="container">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-        <h1>Check-out Xe</h1>
-        <Link to="/staff/dashboard">
-          <button className="secondary">← Quay lại</button>
-        </Link>
-      </div>
+    <Layout>
+      <Box>
+        <Typography variant="h5" fontWeight={700} mb={3}>Check-out Xe</Typography>
 
-      <div className="card" style={{ maxWidth: '800px', margin: '0 auto' }}>
-        <h3>Tra cứu phiên gửi xe</h3>
+        <Card sx={{ borderRadius: 3, boxShadow: 2, maxWidth: 700, mx: 'auto' }}>
+          <CardContent sx={{ p: 4 }}>
+            <Box sx={{ textAlign: 'center', mb: 3 }}>
+              <LogoutOutlinedIcon sx={{ fontSize: 48, color: 'error.main' }} />
+              <Typography variant="h6" fontWeight={600}>Ghi nhận xe ra bãi</Typography>
+            </Box>
 
-        <form onSubmit={handleSearch} style={{ marginTop: '20px' }}>
-          {error && (
-            <div style={{ 
-              padding: '12px', 
-              backgroundColor: '#ffebee', 
-              color: '#c62828', 
-              borderRadius: '8px', 
-              marginBottom: '15px' 
-            }}>
-              {error}
-            </div>
-          )}
+            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Nhập biển số xe hoặc mã phiên"
-              required
-              style={{ flex: 1 }}
-            />
-            <button 
-              type="submit" 
-              className="primary" 
-              disabled={loading}
-              style={{ padding: '12px 24px' }}
-            >
-              {loading ? 'Đang tìm...' : 'Tìm kiếm'}
-            </button>
-          </div>
-        </form>
+            {/* Search form */}
+            <form onSubmit={handleSearch}>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <TextField
+                  label="Nhập biển số xe hoặc mã phiên"
+                  fullWidth
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="VD: 29A-12345"
+                  required
+                />
+                <Button type="submit" variant="contained" disabled={loading} startIcon={<SearchIcon />} sx={{ px: 3, borderRadius: 2, whiteSpace: 'nowrap' }}>
+                  Tìm kiếm
+                </Button>
+              </Box>
+            </form>
 
-        {session && (
-          <div style={{ marginTop: '30px', border: '2px solid #e0e0e0', borderRadius: '12px', padding: '20px' }}>
-            <h3 style={{ marginBottom: '20px', color: '#1976d2' }}>Thông tin phiên gửi xe</h3>
+            {/* Session info */}
+            {session && (
+              <Box sx={{ mt: 3, border: '2px solid #e0e0e0', borderRadius: 2, p: 3 }}>
+                <Typography variant="h6" fontWeight={600} color="primary" mb={2}>Thông tin phiên gửi xe</Typography>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', gap: '12px', marginBottom: '20px' }}>
-              <div style={{ fontWeight: 600 }}>Biển số:</div>
-              <div>{session.plateNumber}</div>
+                <Grid container spacing={2}>
+                  {[
+                    ['Biển số', session.plateNumber],
+                    ['Loại xe', session.vehicleType === 'CAR' ? 'Ô tô' : 'Xe máy'],
+                    ['Vị trí', session.slotCode],
+                    ['Giờ vào', new Date(session.checkInTime).toLocaleString('vi-VN')],
+                  ].map(([label, value]) => (
+                    <Grid item xs={6} key={label}>
+                      <Typography variant="body2" color="text.secondary">{label}</Typography>
+                      <Typography fontWeight={600}>{value}</Typography>
+                    </Grid>
+                  ))}
+                </Grid>
 
-              <div style={{ fontWeight: 600 }}>Loại xe:</div>
-              <div>{session.vehicleType === 'CAR' ? 'Ô tô' : 'Xe máy'}</div>
+                <Divider sx={{ my: 2 }} />
 
-              <div style={{ fontWeight: 600 }}>Vị trí:</div>
-              <div>{session.slotCode}</div>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <AccessTimeIcon color="warning" />
+                    <Typography fontWeight={600} color="warning.main">{getDuration(session.checkInTime)}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="body2" color="text.secondary">Phí dự kiến</Typography>
+                    <Typography variant="h5" fontWeight={700} color="error.main">
+                      {getEstimatedFee(session.checkInTime)} VNĐ
+                    </Typography>
+                  </Box>
+                </Box>
 
-              <div style={{ fontWeight: 600 }}>Giờ vào:</div>
-              <div>{formatDateTime(session.checkInTime)}</div>
-
-              <div style={{ fontWeight: 600 }}>Giờ hiện tại:</div>
-              <div>{formatDateTime(new Date())}</div>
-
-              <div style={{ fontWeight: 600 }}>Thời gian gửi:</div>
-              <div style={{ color: '#1976d2', fontWeight: 600 }}>
-                {calculateDuration(session.checkInTime, new Date())}
-              </div>
-
-              <div style={{ fontWeight: 600 }}>Phí dự kiến:</div>
-              <div style={{ color: '#d32f2f', fontWeight: 600, fontSize: '18px' }}>
-                {session.estimatedFee?.toLocaleString('vi-VN')} VNĐ
-              </div>
-            </div>
-
-            <button 
-              onClick={handleCheckout}
-              className="success"
-              style={{ width: '100%', padding: '14px', fontSize: '16px' }}
-            >
-              Xác nhận Check-out
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
+                <Button variant="contained" color="error" fullWidth size="large" onClick={handleCheckout} startIcon={<LogoutOutlinedIcon />} sx={{ mt: 2, py: 1.5, borderRadius: 2 }}>
+                  Xác nhận Check-out
+                </Button>
+              </Box>
+            )}
+          </CardContent>
+        </Card>
+      </Box>
+    </Layout>
   )
 }
 

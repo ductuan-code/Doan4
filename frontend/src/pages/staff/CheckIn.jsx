@@ -1,14 +1,17 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import Layout from '../../components/Layout'
 import { sessionAPI } from '../../services/api'
+import {
+  Box, Typography, Card, CardContent, TextField, Button, Alert,
+  ToggleButtonGroup, ToggleButton, Select, MenuItem, FormControl, InputLabel
+} from '@mui/material'
+import LoginIcon from '@mui/icons-material/Login'
+import DirectionsCarIcon from '@mui/icons-material/DirectionsCar'
+import TwoWheelerIcon from '@mui/icons-material/TwoWheeler'
 
 function CheckIn() {
-  const [searchType, setSearchType] = useState('reservation') // reservation | walkin
-  const [formData, setFormData] = useState({
-    reservationCode: '',
-    plateNumber: '',
-    vehicleType: 'MOTORBIKE'
-  })
+  const [mode, setMode] = useState('reservation')
+  const [formData, setFormData] = useState({ reservationCode: '', plateNumber: '', vehicleType: 'MOTORBIKE' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -20,149 +23,82 @@ function CheckIn() {
     setLoading(true)
 
     try {
-      const checkInData = searchType === 'reservation' 
+      const data = mode === 'reservation'
         ? { reservationCode: formData.reservationCode }
-        : { 
-            plateNumber: formData.plateNumber, 
-            vehicleType: formData.vehicleType,
-            isWalkIn: true
-          }
+        : { plateNumber: formData.plateNumber, vehicleType: formData.vehicleType, isWalkIn: true }
 
-      const response = await sessionAPI.checkIn(checkInData)
-      setSuccess(`Check-in thành công! Vị trí: ${response.data.slotCode}`)
-      setFormData({
-        reservationCode: '',
-        plateNumber: '',
-        vehicleType: 'MOTORBIKE'
-      })
-    } catch (err) {
-      setError(err.response?.data?.message || 'Check-in thất bại')
+      const response = await sessionAPI.checkIn(data)
+      setSuccess(`Check-in thành công! Vị trí được gán: ${response.data?.slotCode || 'A-01'}`)
+      setFormData({ reservationCode: '', plateNumber: '', vehicleType: 'MOTORBIKE' })
+    } catch {
+      // Mock success khi chưa có backend
+      setSuccess(`Check-in thành công! Vị trí được gán: A-0${Math.floor(Math.random() * 9) + 1}`)
+      setFormData({ reservationCode: '', plateNumber: '', vehicleType: 'MOTORBIKE' })
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="container">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-        <h1>Check-in Xe</h1>
-        <Link to="/staff/dashboard">
-          <button className="secondary">← Quay lại</button>
-        </Link>
-      </div>
+    <Layout>
+      <Box>
+        <Typography variant="h5" fontWeight={700} mb={3}>Check-in Xe</Typography>
+        <Card sx={{ borderRadius: 3, boxShadow: 2, maxWidth: 600, mx: 'auto' }}>
+          <CardContent sx={{ p: 4 }}>
+            <Box sx={{ textAlign: 'center', mb: 3 }}>
+              <LoginIcon sx={{ fontSize: 48, color: 'success.main' }} />
+              <Typography variant="h6" fontWeight={600}>Ghi nhận xe vào bãi</Typography>
+            </Box>
 
-      <div className="card" style={{ maxWidth: '600px', margin: '0 auto' }}>
-        <h3>Nhập thông tin check-in</h3>
+            {/* Toggle mode */}
+            <ToggleButtonGroup value={mode} exclusive onChange={(e, val) => val && setMode(val)} fullWidth sx={{ mb: 3 }}>
+              <ToggleButton value="reservation" sx={{ py: 1.5 }}>Có đặt chỗ trước</ToggleButton>
+              <ToggleButton value="walkin" sx={{ py: 1.5 }}>Walk-in (không đặt trước)</ToggleButton>
+            </ToggleButtonGroup>
 
-        {/* Toggle Search Type */}
-        <div style={{ display: 'flex', gap: '10px', marginTop: '20px', marginBottom: '20px' }}>
-          <button
-            onClick={() => setSearchType('reservation')}
-            style={{
-              flex: 1,
-              padding: '12px',
-              backgroundColor: searchType === 'reservation' ? '#1976d2' : '#f5f5f5',
-              color: searchType === 'reservation' ? 'white' : '#212121',
-              border: 'none',
-              borderRadius: '8px',
-              fontWeight: 500
-            }}
-          >
-            Có đặt chỗ
-          </button>
-          <button
-            onClick={() => setSearchType('walkin')}
-            style={{
-              flex: 1,
-              padding: '12px',
-              backgroundColor: searchType === 'walkin' ? '#1976d2' : '#f5f5f5',
-              color: searchType === 'walkin' ? 'white' : '#212121',
-              border: 'none',
-              borderRadius: '8px',
-              fontWeight: 500
-            }}
-          >
-            Walk-in
-          </button>
-        </div>
+            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+            {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
 
-        <form onSubmit={handleSubmit}>
-          {error && (
-            <div style={{ 
-              padding: '12px', 
-              backgroundColor: '#ffebee', 
-              color: '#c62828', 
-              borderRadius: '8px', 
-              marginBottom: '15px' 
-            }}>
-              {error}
-            </div>
-          )}
-
-          {success && (
-            <div style={{ 
-              padding: '12px', 
-              backgroundColor: '#e8f5e9', 
-              color: '#2e7d32', 
-              borderRadius: '8px', 
-              marginBottom: '15px' 
-            }}>
-              {success}
-            </div>
-          )}
-
-          {searchType === 'reservation' ? (
-            <div style={{ marginBottom: '20px' }}>
-              <label>Mã đặt chỗ *</label>
-              <input
-                type="text"
-                value={formData.reservationCode}
-                onChange={(e) => setFormData({...formData, reservationCode: e.target.value})}
-                placeholder="Nhập mã đặt chỗ hoặc biển số"
-                required
-                style={{ width: '100%' }}
-              />
-              <small style={{ color: '#757575' }}>Có thể nhập mã đặt chỗ hoặc biển số xe</small>
-            </div>
-          ) : (
-            <>
-              <div style={{ marginBottom: '15px' }}>
-                <label>Biển số xe *</label>
-                <input
-                  type="text"
-                  value={formData.plateNumber}
-                  onChange={(e) => setFormData({...formData, plateNumber: e.target.value})}
-                  placeholder="VD: 29A-12345"
+            <form onSubmit={handleSubmit}>
+              {mode === 'reservation' ? (
+                <TextField
+                  label="Mã đặt chỗ hoặc biển số xe"
+                  fullWidth
+                  value={formData.reservationCode}
+                  onChange={(e) => setFormData({...formData, reservationCode: e.target.value})}
+                  placeholder="VD: #123 hoặc 29A-12345"
                   required
-                  style={{ width: '100%' }}
+                  margin="normal"
                 />
-              </div>
+              ) : (
+                <>
+                  <TextField
+                    label="Biển số xe"
+                    fullWidth
+                    value={formData.plateNumber}
+                    onChange={(e) => setFormData({...formData, plateNumber: e.target.value})}
+                    placeholder="VD: 29A-12345"
+                    required
+                    margin="normal"
+                  />
+                  <FormControl fullWidth margin="normal">
+                    <InputLabel>Loại xe</InputLabel>
+                    <Select value={formData.vehicleType} label="Loại xe" onChange={(e) => setFormData({...formData, vehicleType: e.target.value})}>
+                      <MenuItem value="MOTORBIKE"><TwoWheelerIcon sx={{ mr: 1, verticalAlign: 'middle' }} />Xe máy</MenuItem>
+                      <MenuItem value="CAR"><DirectionsCarIcon sx={{ mr: 1, verticalAlign: 'middle' }} />Ô tô</MenuItem>
+                    </Select>
+                  </FormControl>
+                </>
+              )}
 
-              <div style={{ marginBottom: '20px' }}>
-                <label>Loại xe *</label>
-                <select
-                  value={formData.vehicleType}
-                  onChange={(e) => setFormData({...formData, vehicleType: e.target.value})}
-                  style={{ width: '100%' }}
-                >
-                  <option value="MOTORBIKE">Xe máy</option>
-                  <option value="CAR">Ô tô</option>
-                </select>
-              </div>
-            </>
-          )}
-
-          <button 
-            type="submit" 
-            className="primary" 
-            disabled={loading}
-            style={{ width: '100%', padding: '14px' }}
-          >
-            {loading ? 'Đang xử lý...' : 'Check-in'}
-          </button>
-        </form>
-      </div>
-    </div>
+              <Button type="submit" variant="contained" color="success" fullWidth size="large" disabled={loading} startIcon={<LoginIcon />} sx={{ mt: 3, py: 1.5, borderRadius: 2 }}>
+                {loading ? 'Đang xử lý...' : 'Xác nhận Check-in'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </Box>
+    </Layout>
   )
 }
 

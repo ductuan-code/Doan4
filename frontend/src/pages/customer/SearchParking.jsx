@@ -1,215 +1,235 @@
-import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { parkingLotAPI, vehicleAPI, reservationAPI } from '../../services/api'
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import Layout from '../../components/Layout'
+import {
+  Box, Typography, Card, CardContent, Grid, Button, TextField,
+  Select, MenuItem, FormControl, InputLabel, Chip, Alert,
+  Stepper, Step, StepLabel, Divider
+} from '@mui/material'
+import SearchIcon from '@mui/icons-material/Search'
+import LocationOnIcon from '@mui/icons-material/LocationOn'
+import EventAvailableIcon from '@mui/icons-material/EventAvailable'
+
+const mockLots = [
+  { id: 1, name: 'Bãi xe A - Trung tâm', address: '123 Nguyễn Huệ, Q1', totalSlots: 50, availableSlots: 12 },
+  { id: 2, name: 'Bãi xe B - Sân bay', address: '456 Trường Sơn, Tân Bình', totalSlots: 100, availableSlots: 35 },
+  { id: 3, name: 'Bãi xe C - Chợ Bến Thành', address: '789 Lê Lợi, Q1', totalSlots: 30, availableSlots: 0 },
+]
+
+const mockSlots = [
+  { id: 1, code: 'A-01', status: 'AVAILABLE' },
+  { id: 2, code: 'A-02', status: 'AVAILABLE' },
+  { id: 3, code: 'A-03', status: 'RESERVED' },
+  { id: 4, code: 'A-04', status: 'OCCUPIED' },
+  { id: 5, code: 'A-05', status: 'AVAILABLE' },
+  { id: 6, code: 'A-06', status: 'AVAILABLE' },
+  { id: 7, code: 'A-07', status: 'MAINTENANCE' },
+  { id: 8, code: 'A-08', status: 'AVAILABLE' },
+]
+
+const slotStatusConfig = {
+  AVAILABLE:   { label: 'Trống', color: '#4caf50', bg: '#e8f5e9' },
+  RESERVED:    { label: 'Đã đặt', color: '#ff9800', bg: '#fff3e0' },
+  OCCUPIED:    { label: 'Đang dùng', color: '#f44336', bg: '#ffebee' },
+  MAINTENANCE: { label: 'Bảo trì', color: '#9e9e9e', bg: '#f5f5f5' },
+}
+
+const steps = ['Chọn bãi & thời gian', 'Chọn vị trí', 'Xác nhận']
 
 function SearchParking() {
   const navigate = useNavigate()
-  const [parkingLots, setParkingLots] = useState([])
-  const [vehicles, setVehicles] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [filters, setFilters] = useState({
-    vehicleType: 'MOTORBIKE',
-    startTime: '',
-    endTime: ''
-  })
+  const [activeStep, setActiveStep] = useState(0)
+  const [filters, setFilters] = useState({ vehicleType: 'MOTORBIKE', startTime: '', endTime: '' })
   const [selectedLot, setSelectedLot] = useState(null)
-  const [availableSlots, setAvailableSlots] = useState([])
   const [selectedSlot, setSelectedSlot] = useState(null)
-  const [selectedVehicle, setSelectedVehicle] = useState('')
+  const [error, setError] = useState('')
 
-  useEffect(() => {
-    loadData()
-  }, [])
-
-  const loadData = async () => {
-    try {
-      const [lotsRes, vehiclesRes] = await Promise.all([
-        parkingLotAPI.getAll(),
-        vehicleAPI.getAll()
-      ])
-      setParkingLots(lotsRes.data)
-      setVehicles(vehiclesRes.data)
-    } catch (err) {
-      console.error('Error loading data:', err)
-    } finally {
-      setLoading(false)
+  const handleSelectLot = (lot) => {
+    if (lot.availableSlots === 0) {
+      setError('Bãi này đã hết chỗ trống!')
+      return
     }
-  }
-
-  const handleSearch = async (lotId) => {
     if (!filters.startTime || !filters.endTime) {
-      alert('Vui lòng chọn thời gian bắt đầu và kết thúc')
+      setError('Vui lòng chọn thời gian trước!')
       return
     }
-
-    try {
-      const response = await parkingLotAPI.getAvailability(
-        lotId, 
-        filters.vehicleType, 
-        filters.startTime, 
-        filters.endTime
-      )
-      setAvailableSlots(response.data)
-      setSelectedLot(lotId)
-    } catch (err) {
-      alert('Không thể tải thông tin chỗ trống')
-    }
+    setError('')
+    setSelectedLot(lot)
+    setActiveStep(1)
   }
 
-  const handleReserve = async () => {
-    if (!selectedVehicle) {
-      alert('Vui lòng chọn phương tiện')
-      return
-    }
-    if (!selectedSlot) {
-      alert('Vui lòng chọn vị trí đỗ')
-      return
-    }
+  const handleSelectSlot = (slot) => {
+    if (slot.status !== 'AVAILABLE') return
+    setSelectedSlot(slot)
+    setActiveStep(2)
+  }
 
+  const handleConfirm = async () => {
     try {
-      await reservationAPI.create({
-        vehicleId: selectedVehicle,
-        slotId: selectedSlot,
-        startTime: filters.startTime,
-        endTime: filters.endTime
-      })
-      
-      alert('Đặt chỗ thành công!')
+      // Gọi API khi có backend
+      alert(`Đặt chỗ thành công!\nBãi: ${selectedLot.name}\nVị trí: ${selectedSlot.code}`)
       navigate('/customer/history')
     } catch (err) {
-      alert(err.response?.data?.message || 'Đặt chỗ thất bại')
+      setError('Đặt chỗ thất bại')
     }
   }
 
   return (
-    <div className="container">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-        <h1>Tìm Bãi Đỗ Xe</h1>
-        <Link to="/customer/dashboard">
-          <button className="secondary">← Quay lại</button>
-        </Link>
-      </div>
+    <Layout>
+      <Box>
+        <Typography variant="h5" fontWeight={700} mb={3}>Tìm Bãi Đỗ Xe</Typography>
 
-      {/* Filters */}
-      <div className="card">
-        <h3>Tìm kiếm</h3>
-        
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginTop: '20px' }}>
-          <div>
-            <label>Loại xe</label>
-            <select
-              value={filters.vehicleType}
-              onChange={(e) => setFilters({...filters, vehicleType: e.target.value})}
-              style={{ width: '100%' }}
-            >
-              <option value="MOTORBIKE">Xe máy</option>
-              <option value="CAR">Ô tô</option>
-            </select>
-          </div>
-
-          <div>
-            <label>Giờ bắt đầu</label>
-            <input
-              type="datetime-local"
-              value={filters.startTime}
-              onChange={(e) => setFilters({...filters, startTime: e.target.value})}
-              style={{ width: '100%' }}
-            />
-          </div>
-
-          <div>
-            <label>Giờ kết thúc</label>
-            <input
-              type="datetime-local"
-              value={filters.endTime}
-              onChange={(e) => setFilters({...filters, endTime: e.target.value})}
-              style={{ width: '100%' }}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Parking Lots List */}
-      <h3 style={{ marginTop: '30px', marginBottom: '15px' }}>Danh sách bãi đỗ</h3>
-      
-      {loading ? (
-        <p>Đang tải...</p>
-      ) : parkingLots.length === 0 ? (
-        <p>Chưa có bãi đỗ nào</p>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
-          {parkingLots.map((lot) => (
-            <div key={lot.id} className="card" style={{ cursor: 'pointer' }}>
-              <h3>{lot.name}</h3>
-              <p style={{ marginBottom: '15px' }}>{lot.address}</p>
-              <button 
-                className="primary" 
-                onClick={() => handleSearch(lot.id)}
-                style={{ width: '100%' }}
-              >
-                Xem chỗ trống
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Available Slots */}
-      {selectedLot && availableSlots.length > 0 && (
-        <div className="card" style={{ marginTop: '30px' }}>
-          <h3>Chọn vị trí đỗ</h3>
-          
-          <div style={{ marginTop: '20px', marginBottom: '20px' }}>
-            <label>Chọn phương tiện của bạn</label>
-            <select
-              value={selectedVehicle}
-              onChange={(e) => setSelectedVehicle(e.target.value)}
-              style={{ width: '100%' }}
-            >
-              <option value="">-- Chọn xe --</option>
-              {vehicles.filter(v => v.vehicleType === filters.vehicleType).map(v => (
-                <option key={v.id} value={v.id}>{v.plateNumber}</option>
+        {/* Stepper */}
+        <Card sx={{ borderRadius: 3, boxShadow: 2, mb: 3 }}>
+          <CardContent>
+            <Stepper activeStep={activeStep}>
+              {steps.map((label) => (
+                <Step key={label}><StepLabel>{label}</StepLabel></Step>
               ))}
-            </select>
-          </div>
+            </Stepper>
+          </CardContent>
+        </Card>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '10px' }}>
-            {availableSlots.map((slot) => (
-              <button
-                key={slot.id}
-                onClick={() => setSelectedSlot(slot.id)}
-                style={{
-                  padding: '20px',
-                  backgroundColor: selectedSlot === slot.id ? '#1976d2' : '#f5f5f5',
-                  color: selectedSlot === slot.id ? 'white' : '#212121',
-                  border: '2px solid',
-                  borderColor: selectedSlot === slot.id ? '#1976d2' : '#e0e0e0',
-                  borderRadius: '8px',
-                  fontWeight: 600
-                }}
-              >
-                {slot.code}
-              </button>
-            ))}
-          </div>
+        {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
-          <button 
-            className="success" 
-            onClick={handleReserve}
-            style={{ width: '100%', marginTop: '20px', padding: '14px' }}
-            disabled={!selectedSlot || !selectedVehicle}
-          >
-            Đặt chỗ ngay
-          </button>
-        </div>
-      )}
+        {/* Step 1: Tìm bãi */}
+        {activeStep === 0 && (
+          <>
+            <Card sx={{ borderRadius: 3, boxShadow: 2, mb: 3 }}>
+              <CardContent>
+                <Typography variant="h6" fontWeight={600} mb={2}>Thông tin tìm kiếm</Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={4}>
+                    <FormControl fullWidth>
+                      <InputLabel>Loại xe</InputLabel>
+                      <Select value={filters.vehicleType} label="Loại xe" onChange={(e) => setFilters({...filters, vehicleType: e.target.value})}>
+                        <MenuItem value="MOTORBIKE">Xe máy</MenuItem>
+                        <MenuItem value="CAR">Ô tô</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} sm={4}>
+                    <TextField label="Giờ bắt đầu" type="datetime-local" fullWidth value={filters.startTime} onChange={(e) => setFilters({...filters, startTime: e.target.value})} InputLabelProps={{ shrink: true }} />
+                  </Grid>
+                  <Grid item xs={12} sm={4}>
+                    <TextField label="Giờ kết thúc" type="datetime-local" fullWidth value={filters.endTime} onChange={(e) => setFilters({...filters, endTime: e.target.value})} InputLabelProps={{ shrink: true }} />
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
 
-      {selectedLot && availableSlots.length === 0 && (
-        <div className="card" style={{ marginTop: '30px', textAlign: 'center' }}>
-          <p>Không còn chỗ trống cho khung giờ này</p>
-        </div>
-      )}
-    </div>
+            <Typography variant="h6" fontWeight={600} mb={2}>Danh sách bãi đỗ</Typography>
+            <Grid container spacing={3}>
+              {mockLots.map((lot) => (
+                <Grid item xs={12} sm={6} md={4} key={lot.id}>
+                  <Card sx={{ borderRadius: 3, boxShadow: 2, border: lot.availableSlots === 0 ? '1px solid #ffcdd2' : '1px solid #e0e0e0' }}>
+                    <CardContent>
+                      <Typography variant="h6" fontWeight={600}>{lot.name}</Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary', mb: 2 }}>
+                        <LocationOnIcon fontSize="small" />
+                        <Typography variant="body2">{lot.address}</Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                        <Chip label={`Còn trống: ${lot.availableSlots}`} color={lot.availableSlots > 0 ? 'success' : 'error'} size="small" />
+                        <Chip label={`Tổng: ${lot.totalSlots}`} variant="outlined" size="small" />
+                      </Box>
+                      <Button
+                        variant="contained"
+                        fullWidth
+                        disabled={lot.availableSlots === 0}
+                        onClick={() => handleSelectLot(lot)}
+                        startIcon={<EventAvailableIcon />}
+                        sx={{ borderRadius: 2 }}
+                      >
+                        {lot.availableSlots === 0 ? 'Hết chỗ' : 'Chọn bãi này'}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          </>
+        )}
+
+        {/* Step 2: Chọn vị trí */}
+        {activeStep === 1 && (
+          <Card sx={{ borderRadius: 3, boxShadow: 2 }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                <Typography variant="h6" fontWeight={600}>Chọn vị trí tại {selectedLot?.name}</Typography>
+                <Button onClick={() => setActiveStep(0)}>← Quay lại</Button>
+              </Box>
+
+              {/* Legend */}
+              <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+                {Object.entries(slotStatusConfig).map(([key, val]) => (
+                  <Box key={key} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Box sx={{ width: 16, height: 16, borderRadius: 0.5, bgcolor: val.bg, border: `2px solid ${val.color}` }} />
+                    <Typography variant="caption">{val.label}</Typography>
+                  </Box>
+                ))}
+              </Box>
+
+              <Grid container spacing={2}>
+                {mockSlots.map((slot) => {
+                  const config = slotStatusConfig[slot.status]
+                  return (
+                    <Grid item xs={6} sm={3} md={2} key={slot.id}>
+                      <Button
+                        fullWidth
+                        disabled={slot.status !== 'AVAILABLE'}
+                        onClick={() => handleSelectSlot(slot)}
+                        sx={{
+                          py: 2,
+                          bgcolor: config.bg,
+                          color: config.color,
+                          border: `2px solid ${config.color}`,
+                          borderRadius: 2,
+                          fontWeight: 700,
+                          '&:hover': { bgcolor: slot.status === 'AVAILABLE' ? '#c8e6c9' : config.bg },
+                          '&.Mui-disabled': { bgcolor: config.bg, color: config.color, border: `2px solid ${config.color}`, opacity: 0.7 }
+                        }}
+                      >
+                        {slot.code}
+                      </Button>
+                    </Grid>
+                  )
+                })}
+              </Grid>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Step 3: Xác nhận */}
+        {activeStep === 2 && (
+          <Card sx={{ borderRadius: 3, boxShadow: 2, maxWidth: 500, mx: 'auto' }}>
+            <CardContent sx={{ p: 4 }}>
+              <Typography variant="h6" fontWeight={600} mb={3} textAlign="center">Xác nhận đặt chỗ</Typography>
+              <Box sx={{ bgcolor: '#f5f6fa', borderRadius: 2, p: 2, mb: 3 }}>
+                {[
+                  ['Bãi đỗ xe', selectedLot?.name],
+                  ['Vị trí', selectedSlot?.code],
+                  ['Loại xe', filters.vehicleType === 'CAR' ? 'Ô tô' : 'Xe máy'],
+                  ['Giờ bắt đầu', filters.startTime ? new Date(filters.startTime).toLocaleString('vi-VN') : ''],
+                  ['Giờ kết thúc', filters.endTime ? new Date(filters.endTime).toLocaleString('vi-VN') : ''],
+                ].map(([label, value]) => (
+                  <Box key={label} sx={{ display: 'flex', justifyContent: 'space-between', py: 1 }}>
+                    <Typography color="text.secondary">{label}:</Typography>
+                    <Typography fontWeight={600}>{value}</Typography>
+                  </Box>
+                ))}
+              </Box>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <Button fullWidth onClick={() => setActiveStep(1)}>← Quay lại</Button>
+                <Button fullWidth variant="contained" color="success" onClick={handleConfirm} sx={{ borderRadius: 2 }}>
+                  Xác nhận đặt chỗ
+                </Button>
+              </Box>
+            </CardContent>
+          </Card>
+        )}
+      </Box>
+    </Layout>
   )
 }
 

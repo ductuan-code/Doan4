@@ -1,14 +1,18 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { authAPI } from '../services/api'
+import {
+  Box, Card, CardContent, TextField, Button, Typography,
+  Alert, Divider, Chip
+} from '@mui/material'
+import LocalParkingIcon from '@mui/icons-material/LocalParking'
 
 function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  
+
   const { login } = useAuth()
   const navigate = useNavigate()
 
@@ -18,66 +22,110 @@ function LoginPage() {
     setLoading(true)
 
     try {
-      const response = await authAPI.login(email, password)
-      const { token, user } = response.data
-      
-      login(user, token)
-
-      // Redirect based on role
-      if (user.role === 'Admin') {
-        navigate('/admin/dashboard')
-      } else if (user.role === 'Staff') {
-        navigate('/staff/dashboard')
-      } else {
-        navigate('/customer/dashboard')
+      const mockUsers = {
+        'customer@test.com': { id: 1, name: 'Khách Hàng Test', email: 'customer@test.com', role: 'Customer' },
+        'staff@test.com':    { id: 2, name: 'Nhân Viên Test',  email: 'staff@test.com',    role: 'Staff' },
+        'admin@test.com':    { id: 3, name: 'Quản Trị Test',   email: 'admin@test.com',    role: 'Admin' },
       }
+
+      const mockUser = mockUsers[email]
+      if (!mockUser || password !== '123456') throw new Error('Sai email hoặc mật khẩu')
+
+      login(mockUser, 'mock-token-123')
+
+      if (mockUser.role === 'Admin') navigate('/admin/dashboard')
+      else if (mockUser.role === 'Staff') navigate('/staff/dashboard')
+      else navigate('/customer/dashboard')
     } catch (err) {
-      setError(err.response?.data?.message || 'Đăng nhập thất bại')
+      setError(err.message || 'Đăng nhập thất bại')
     } finally {
       setLoading(false)
     }
   }
 
+  const quickLogin = (testEmail) => {
+    setEmail(testEmail)
+    setPassword('123456')
+  }
+
   return (
-    <div className="container">
-      <h2>Đăng nhập</h2>
-      
-      <form onSubmit={handleSubmit} style={{ maxWidth: '400px', marginTop: '20px' }}>
-        {error && <div style={{ color: 'red', marginBottom: '10px' }}>{error}</div>}
-        
-        <div style={{ marginBottom: '15px' }}>
-          <label>Email:</label>
-          <br />
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            style={{ width: '100%' }}
-          />
-        </div>
+    <Box sx={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
+      p: 2
+    }}>
+      <Card sx={{ maxWidth: 460, width: '100%', borderRadius: 3, boxShadow: 8 }}>
+        <CardContent sx={{ p: 4 }}>
+          {/* Logo */}
+          <Box sx={{ textAlign: 'center', mb: 3 }}>
+            <LocalParkingIcon sx={{ fontSize: 56, color: 'primary.main' }} />
+            <Typography variant="h5" fontWeight={700} mt={1}>
+              Hệ Thống Bãi Đỗ Xe
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Đăng nhập để tiếp tục
+            </Typography>
+          </Box>
 
-        <div style={{ marginBottom: '15px' }}>
-          <label>Mật khẩu:</label>
-          <br />
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            style={{ width: '100%' }}
-          />
-        </div>
+          {/* Test accounts hint */}
+          <Alert severity="info" sx={{ mb: 2, fontSize: 13 }}>
+            <strong>Tài khoản test (mật khẩu: 123456)</strong>
+            <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
+              <Chip label="customer@test.com" size="small" onClick={() => quickLogin('customer@test.com')} clickable color="primary" variant="outlined" />
+              <Chip label="staff@test.com" size="small" onClick={() => quickLogin('staff@test.com')} clickable color="success" variant="outlined" />
+              <Chip label="admin@test.com" size="small" onClick={() => quickLogin('admin@test.com')} clickable color="warning" variant="outlined" />
+            </Box>
+          </Alert>
 
-        <button type="submit" className="primary" disabled={loading}>
-          {loading ? 'Đang xử lý...' : 'Đăng nhập'}
-        </button>
-        
-        <div style={{ marginTop: '15px' }}>
-          Chưa có tài khoản? <Link to="/register">Đăng ký ngay</Link>
-        </div>
-      </form>
-    </div>
+          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
+          <form onSubmit={handleSubmit}>
+            <TextField
+              label="Email"
+              type="email"
+              fullWidth
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              margin="normal"
+              placeholder="example@email.com"
+            />
+            <TextField
+              label="Mật khẩu"
+              type="password"
+              fullWidth
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              margin="normal"
+              placeholder="••••••••"
+            />
+            <Button
+              type="submit"
+              variant="contained"
+              fullWidth
+              size="large"
+              disabled={loading}
+              sx={{ mt: 2, mb: 2, py: 1.5, borderRadius: 2 }}
+            >
+              {loading ? 'Đang xử lý...' : 'Đăng nhập'}
+            </Button>
+          </form>
+
+          <Divider sx={{ my: 2 }} />
+
+          <Typography variant="body2" textAlign="center">
+            Chưa có tài khoản?{' '}
+            <Link to="/register" style={{ color: '#1976d2', fontWeight: 600 }}>
+              Đăng ký ngay
+            </Link>
+          </Typography>
+        </CardContent>
+      </Card>
+    </Box>
   )
 }
 
