@@ -99,10 +99,9 @@ export const adminAPI = {
   updatePricing: (vehicleType, data, key) => api.put(`/admin/pricing/${vehicleType}`, data, { headers: { 'Idempotency-Key': key } }),
   
   // Users
-  getUsers: () => api.get('/admin/users'),
-  createUser: (data) => api.post('/admin/users', data),
-  updateUser: (id, data) => api.put(`/admin/users/${id}`, data),
-  toggleUserStatus: (id) => api.put(`/admin/users/${id}/toggle-status`),
+  getUsers: params => api.get('/admin/users', { params }),
+  createUser: (data, key) => api.post('/admin/users', data, { headers: { 'Idempotency-Key': key } }),
+  updateUser: (id, data, key) => api.put(`/admin/users/${id}`, data, { headers: { 'Idempotency-Key': key } }),
   
   // Reports
   getReports: (params) => api.get('/admin/reports', { params })
