@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const API_URL = 'http://localhost:5000/api'
+const API_URL = import.meta.env.VITE_API_URL || '/api'
 
 const api = axios.create({
   baseURL: API_URL,
@@ -21,6 +21,20 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 )
 
+api.interceptors.response.use(
+  response => response,
+  error => {
+    const route = error.config?.url || ''
+    if (error.response?.status === 401 && route !== '/auth/login' && route !== '/auth/register') {
+      window.dispatchEvent(new Event('auth:expired'))
+    }
+    return Promise.reject(error)
+  }
+)
+
+export const getErrorMessage = error => error.response?.data?.message
+  || 'Không kết nối được máy chủ. Vui lòng kiểm tra backend rồi thử lại.'
+
 // Auth API
 export const authAPI = {
   login: (email, password) => api.post('/auth/login', { email, password }),
@@ -31,9 +45,8 @@ export const authAPI = {
 // Vehicle API
 export const vehicleAPI = {
   getAll: () => api.get('/vehicles'),
-  create: (vehicleData) => api.post('/vehicles', vehicleData),
-  update: (id, vehicleData) => api.put(`/vehicles/${id}`, vehicleData),
-  delete: (id) => api.delete(`/vehicles/${id}`)
+  create: (vehicleData, key) => api.post('/vehicles', vehicleData, { headers: { 'Idempotency-Key': key } }),
+  update: (id, vehicleData, key) => api.patch(`/vehicles/${id}`, vehicleData, { headers: { 'Idempotency-Key': key } })
 }
 
 // Parking Lot API

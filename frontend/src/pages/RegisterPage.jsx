@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { authAPI } from '../services/api'
+import { authAPI, getErrorMessage } from '../services/api'
 import {
   Box, Card, CardContent, TextField, Button, Typography, Alert
 } from '@mui/material'
@@ -17,15 +17,17 @@ function RegisterPage() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    if (formData.password.length < 8) {
+      setError('Mật khẩu mới cần ít nhất 8 ký tự.')
+      return
+    }
     setLoading(true)
     try {
       await authAPI.register(formData)
       alert('Đăng ký thành công! Vui lòng đăng nhập.')
       navigate('/login')
     } catch (err) {
-      // Mock success khi chưa có backend
-      alert('Đăng ký thành công! Vui lòng đăng nhập.')
-      navigate('/login')
+      setError(getErrorMessage(err))
     } finally {
       setLoading(false)
     }

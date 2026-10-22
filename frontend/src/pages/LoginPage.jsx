@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { authAPI, getErrorMessage } from '../services/api'
+import { dashboardPath } from '../components/ProtectedRoute'
 import {
   Box, Card, CardContent, TextField, Button, Typography,
   Alert, Divider, Chip, InputAdornment, IconButton
@@ -27,19 +29,11 @@ function LoginPage() {
     setLoading(true)
 
     try {
-      const mockUsers = {
-        'customer@test.com': { id: 1, name: 'Nguyễn Văn A', email: 'customer@test.com', role: 'Customer' },
-        'staff@test.com':    { id: 2, name: 'Trần Thị B',   email: 'staff@test.com',    role: 'Staff' },
-        'admin@test.com':    { id: 3, name: 'Admin System',  email: 'admin@test.com',    role: 'Admin' },
-      }
-      const mockUser = mockUsers[email]
-      if (!mockUser || password !== '123456') throw new Error('Sai email hoặc mật khẩu')
-      login(mockUser, 'mock-token-123')
-      if (mockUser.role === 'Admin') navigate('/admin/dashboard')
-      else if (mockUser.role === 'Staff') navigate('/staff/dashboard')
-      else navigate('/customer/dashboard')
+      const { data } = await authAPI.login(email.trim(), password)
+      login(data.user, data.token)
+      navigate(dashboardPath(data.user.role), { replace: true })
     } catch (err) {
-      setError(err.message)
+      setError(getErrorMessage(err))
     } finally {
       setLoading(false)
     }
@@ -115,13 +109,13 @@ function LoginPage() {
             {/* Quick login chips */}
             <Alert severity="info" sx={{ mb: 2, '& .MuiAlert-message': { width: '100%' } }}>
               <Typography variant="caption" fontWeight={600} display="block" mb={1}>
-                Tài khoản test (mật khẩu: 123456)
+                Tài khoản demo SQL Server (mật khẩu: 123456)
               </Typography>
               <Box sx={{ display: 'flex', gap: 0.8, flexWrap: 'wrap' }}>
                 {[
-                  { label: 'Khách hàng', email: 'customer@test.com', color: 'primary' },
-                  { label: 'Nhân viên', email: 'staff@test.com', color: 'success' },
-                  { label: 'Admin', email: 'admin@test.com', color: 'warning' },
+                  { label: 'Khách hàng', email: 'customer1@parking.test', color: 'primary' },
+                  { label: 'Nhân viên', email: 'staff1@parking.test', color: 'success' },
+                  { label: 'Admin', email: 'admin@parking.test', color: 'warning' },
                 ].map(item => (
                   <Chip
                     key={item.email}

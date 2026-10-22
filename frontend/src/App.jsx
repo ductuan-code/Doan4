@@ -1,4 +1,5 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import ProtectedRoute from './components/ProtectedRoute'
 import { AuthProvider } from './context/AuthContext'
 import { createTheme, ThemeProvider } from '@mui/material/styles'
 
@@ -71,15 +72,20 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
 
+            <Route element={<ProtectedRoute roles={['Customer']} />}>
             <Route path="/customer/dashboard" element={<CustomerDashboard />} />
             <Route path="/customer/vehicles" element={<VehicleManagement />} />
             <Route path="/customer/search" element={<SearchParking />} />
             <Route path="/customer/history" element={<ReservationHistory />} />
+            </Route>
 
+            <Route element={<ProtectedRoute roles={['Staff']} />}>
             <Route path="/staff/dashboard" element={<StaffDashboard />} />
             <Route path="/staff/checkin" element={<CheckIn />} />
             <Route path="/staff/checkout" element={<CheckOut />} />
+            </Route>
 
+            <Route element={<ProtectedRoute roles={['Admin']} />}>
             <Route path="/admin/dashboard" element={<AdminDashboard />} />
             <Route path="/admin/parking-lots" element={<ManageParkingLots />} />
             <Route path="/admin/zones" element={<ManageZones />} />
@@ -87,6 +93,8 @@ function App() {
             <Route path="/admin/pricing" element={<ManagePricing />} />
             <Route path="/admin/users" element={<ManageUsers />} />
             <Route path="/admin/reports" element={<Reports />} />
+            </Route>
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Router>
       </AuthProvider>

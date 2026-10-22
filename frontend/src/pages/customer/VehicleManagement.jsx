@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Layout from '../../components/Layout'
-import { vehicleAPI } from '../../services/api'
+import { vehicleAPI, getErrorMessage } from '../../services/api'
 import {
   Box, Typography, Button, Card, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Dialog, DialogTitle,
@@ -9,7 +9,7 @@ import {
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
-import DeleteIcon from '@mui/icons-material/Delete'
+import PowerSettingsNewIcon from '@mui/icons-material/PowerSettingsNew'
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar'
 import TwoWheelerIcon from '@mui/icons-material/TwoWheeler'
 
@@ -18,20 +18,28 @@ function VehicleManagement() {
   const [loading, setLoading] = useState(true)
   const [openDialog, setOpenDialog] = useState(false)
   const [editingId, setEditingId] = useState(null)
-  const [formData, setFormData] = useState({ plateNumber: '', vehicleType: 'MOTORBIKE' })
+  const [formData, setFormData] = useState({ plateNumber: '', vehicleType: 'MOTORBIKE', isActive: true })
   const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+  const pendingRequest = useRef(null)
+  const requestKey = (operation, data) => {
+    const fingerprint = `${operation}:${JSON.stringify(data)}`
+    if (pendingRequest.current?.fingerprint !== fingerprint) {
+      pendingRequest.current = { fingerprint, key: crypto.randomUUID() }
+    }
+    return pendingRequest.current.key
+  }
 
   useEffect(() => { loadVehicles() }, [])
 
   const loadVehicles = async () => {
+    setLoading(true)
     try {
       const response = await vehicleAPI.getAll()
       setVehicles(response.data)
-    } catch {
-      setVehicles([
-        { id: 1, plateNumber: '29A-12345', vehicleType: 'MOTORBIKE' },
-        { id: 2, plateNumber: '30B-67890', vehicleType: 'CAR' },
-      ])
+      setError('')
+    } catch (error) {
+      setError(getErrorMessage(error))
     } finally {
       setLoading(false)
     }
@@ -40,38 +48,50 @@ function VehicleManagement() {
   const handleOpenDialog = (vehicle = null) => {
     if (vehicle) {
       setEditingId(vehicle.id)
-      setFormData({ plateNumber: vehicle.plateNumber, vehicleType: vehicle.vehicleType })
+      setFormData({ plateNumber: vehicle.plateNumber, vehicleType: vehicle.vehicleType, isActive: vehicle.isActive })
     } else {
       setEditingId(null)
-      setFormData({ plateNumber: '', vehicleType: 'MOTORBIKE' })
+      setFormData({ plateNumber: '', vehicleType: 'MOTORBIKE', isActive: true })
     }
     setError('')
+    pendingRequest.current = null
     setOpenDialog(true)
   }
 
   const handleSubmit = async () => {
+    if (saving) return
     if (!formData.plateNumber.trim()) { setError('Vui lòng nhập biển số xe'); return }
+    setSaving(true)
+    const data = { ...formData, plateNumber: formData.plateNumber.trim() }
     try {
       if (editingId) {
-        await vehicleAPI.update(editingId, formData)
-        setVehicles(vehicles.map(v => v.id === editingId ? { ...v, ...formData } : v))
+        await vehicleAPI.update(editingId, data, requestKey(`update:${editingId}`, data))
       } else {
-        await vehicleAPI.create(formData)
-        setVehicles([...vehicles, { id: Date.now(), ...formData }])
+        await vehicleAPI.create(data, requestKey('create', data))
       }
       setOpenDialog(false)
+      pendingRequest.current = null
+      await loadVehicles()
     } catch (err) {
-      setError(err.response?.data?.message || 'Có lỗi xảy ra')
+      setError(getErrorMessage(err))
+    } finally {
+      setSaving(false)
     }
   }
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Bạn có chắc muốn xóa phương tiện này?')) return
+  const handleToggle = async (vehicle) => {
+    if (saving) return
+    if (!window.confirm(vehicle.isActive ? 'Ngừng sử dụng xe này? Lịch sử gửi xe vẫn được giữ.' : 'Kích hoạt lại xe này?')) return
+    const data = { plateNumber: vehicle.plateNumber, vehicleType: vehicle.vehicleType, isActive: !vehicle.isActive }
+    setSaving(true)
     try {
-      await vehicleAPI.delete(id)
-      setVehicles(vehicles.filter(v => v.id !== id))
+      await vehicleAPI.update(vehicle.id, data, requestKey(`toggle:${vehicle.id}`, data))
+      pendingRequest.current = null
+      await loadVehicles()
     } catch (err) {
-      alert(err.response?.data?.message || 'Không thể xóa phương tiện')
+      setError(getErrorMessage(err))
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -98,6 +118,7 @@ function VehicleManagement() {
           </Button>
         </Box>
 
+        {error && !openDialog && <Alert severity="error" sx={{ mb: 2 }} action={<Button onClick={loadVehicles} disabled={loading}>Tải lại</Button>}>{error}</Alert>}
         <Card sx={{ borderRadius: 3 }}>
           <TableContainer>
             <Table>
@@ -106,15 +127,16 @@ function VehicleManagement() {
                   <TableCell sx={{ fontWeight: 700, color: '#2563eb' }}>STT</TableCell>
                   <TableCell sx={{ fontWeight: 700, color: '#2563eb' }}>Biển số xe</TableCell>
                   <TableCell sx={{ fontWeight: 700, color: '#2563eb' }}>Loại xe</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: '#2563eb' }}>Trạng thái</TableCell>
                   <TableCell align="center" sx={{ fontWeight: 700, color: '#2563eb' }}>Thao tác</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={4} align="center" sx={{ py: 4 }}>Đang tải...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={5} align="center" sx={{ py: 4 }}>Đang tải...</TableCell></TableRow>
                 ) : vehicles.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} align="center" sx={{ py: 6 }}>
+                    <TableCell colSpan={5} align="center" sx={{ py: 6 }}>
                       <TwoWheelerIcon sx={{ fontSize: 48, color: '#cbd5e1', mb: 1 }} />
                       <Typography color="text.secondary">Chưa có phương tiện nào</Typography>
                       <Button variant="contained" sx={{ mt: 2 }} onClick={() => handleOpenDialog()}>Thêm xe ngay</Button>
@@ -144,21 +166,24 @@ function VehicleManagement() {
                         }}
                       />
                     </TableCell>
+                    <TableCell><Chip size="small" label={vehicle.isActive ? 'Đang sử dụng' : 'Đã ngừng sử dụng'} color={vehicle.isActive ? 'success' : 'default'} /></TableCell>
                     <TableCell align="center">
                       <Tooltip title="Chỉnh sửa">
                         <IconButton
+                          disabled={saving}
                           onClick={() => handleOpenDialog(vehicle)}
                           sx={{ color: '#2563eb', '&:hover': { bgcolor: '#eff6ff' } }}
                         >
                           <EditIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title="Xóa">
+                      <Tooltip title={vehicle.isActive ? 'Ngừng sử dụng' : 'Kích hoạt lại'}>
                         <IconButton
-                          onClick={() => handleDelete(vehicle.id)}
+                          disabled={saving}
+                          onClick={() => handleToggle(vehicle)}
                           sx={{ color: '#dc2626', '&:hover': { bgcolor: '#fff1f1' } }}
                         >
-                          <DeleteIcon fontSize="small" />
+                          <PowerSettingsNewIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
                     </TableCell>
@@ -169,7 +194,7 @@ function VehicleManagement() {
           </TableContainer>
         </Card>
 
-        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <Dialog open={openDialog} onClose={() => !saving && setOpenDialog(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
           <DialogTitle sx={{ fontWeight: 700, pb: 1 }}>
             {editingId ? 'Chỉnh sửa phương tiện' : 'Thêm phương tiện mới'}
           </DialogTitle>
@@ -190,9 +215,9 @@ function VehicleManagement() {
             </FormControl>
           </DialogContent>
           <DialogActions sx={{ p: 2.5, gap: 1 }}>
-            <Button onClick={() => setOpenDialog(false)} variant="outlined">Hủy</Button>
-            <Button variant="contained" onClick={handleSubmit} sx={{ px: 3 }}>
-              {editingId ? 'Cập nhật' : 'Thêm mới'}
+            <Button onClick={() => setOpenDialog(false)} disabled={saving} variant="outlined">Hủy</Button>
+            <Button variant="contained" onClick={handleSubmit} disabled={saving} sx={{ px: 3 }}>
+              {saving ? 'Đang lưu...' : editingId ? 'Cập nhật' : 'Thêm mới'}
             </Button>
           </DialogActions>
         </Dialog>

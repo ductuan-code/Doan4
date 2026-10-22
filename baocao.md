@@ -1,22 +1,24 @@
+**Tên đề tài: Quản lý bãi đỗ xe trực tuyến.**
+
 # CHƯƠNG 1: TỔNG QUAN VỀ ĐỀ TÀI
 
 ## 1.1. Lý do chọn đề tài
 
 Với mô hình gửi xe truyền thống, khách hàng chỉ biết còn chỗ hay không sau khi đã đến tận nơi, nhân viên xử lý thủ công bằng vé giấy dễ sai sót, và đơn vị quản lý không có dữ liệu thời gian thực để tối ưu vận hành.
 
-Từ thực tế đó, nhóm lựa chọn xây dựng **Hệ thống Quản lý bãi đỗ xe trực tuyến** — cho phép khách hàng xem tình trạng khả dụng và đặt trước vị trí đỗ xe; hỗ trợ nhân viên xử lý xe vào/ra, đối chiếu đặt chỗ và tính phí tự động; giúp quản trị viên cấu hình bãi và theo dõi báo cáo vận hành.
+Từ thực tế đó, nhóm lựa chọn đề tài **Quản lý bãi đỗ xe trực tuyến**, xây dựng ứng dụng web cho phép khách hàng xem tình trạng khả dụng và đặt trước vị trí đỗ xe; hỗ trợ nhân viên xử lý xe vào/ra, đối chiếu đặt chỗ và tính phí tự động; giúp quản trị viên cấu hình bãi và theo dõi báo cáo vận hành.
 
-Điểm nổi bật của đề tài là nghiệp vụ đặt chỗ trước với cơ chế khóa tạm chống trùng, xử lý no-show và vòng đời khép kín: **đặt chỗ → vào bãi → ra bãi → thanh toán** — vượt ra ngoài phạm vi CRUD thông thường, mang tính thực tiễn cao và phù hợp với quy mô đồ án tốt nghiệp.
+Trọng tâm của đề tài là quản lý vận hành bãi đỗ xe trên ứng dụng web, kết hợp đặt chỗ theo khung giờ, kiểm soát đặt trùng và xử lý no-show. Vòng đời nghiệp vụ gồm **đặt chỗ (nếu có) → check-in → gửi xe → tính phí → thanh toán tại quầy → xác nhận xe ra**. Phạm vi được giới hạn phù hợp với Đồ án 4; chức năng nâng cao được phân biệt với phiên bản đầu.
 
 ## 1.2. Mục tiêu của đề tài
 
 ### 1.2.1. Mục tiêu tổng quát
 
-Xây dựng hệ thống phần mềm hỗ trợ đặt chỗ và quản lý bãi đỗ xe, giải quyết bài toán thiếu thông tin thời gian thực trong mô hình gửi xe truyền thống; đảm bảo vòng đời khép kín từ đặt chỗ đến thanh toán cho cả ba nhóm người dùng: khách hàng, nhân viên vận hành và quản trị viên.
+Xây dựng hệ thống Quản lý bãi đỗ xe trực tuyến phục vụ khách hàng, nhân viên vận hành và quản trị viên; quản lý tập trung cấu hình bãi, lịch đặt, lượt gửi thực tế và thanh toán, hỗ trợ tra cứu khả dụng và xử lý vòng đời xe vào/ra.
 
 ### 1.2.2. Mục tiêu cụ thể
 
-- Xây dựng chức năng đặt trước vị trí đỗ xe theo thời gian thực, có cơ chế khóa tạm chống trùng và tự động hủy khi hết hạn (no-show).
+- Xây dựng chức năng đặt trước theo khung giờ, kiểm tra xung đột và ghi dữ liệu có kiểm soát đồng thời; tự động hết hạn no-show. Giữ chỗ tạm khi khách đang chọn là hướng mở rộng.
 - Hỗ trợ nhân viên thực hiện check-in/check-out xe, đối chiếu với lượt đặt chỗ hoặc xử lý walk-in khi khách không đặt trước.
 - Tự động tính phí dựa trên thời gian gửi thực tế và loại phương tiện (xe máy/ô tô), xử lý các trường hợp lệch giờ so với đặt chỗ.
 - Cho phép quản trị viên cấu hình bãi đỗ, khu vực, vị trí, bảng giá và xem báo cáo thống kê vận hành.
@@ -25,7 +27,7 @@ Xây dựng hệ thống phần mềm hỗ trợ đặt chỗ và quản lý bã
 
 ### 1.3.1. Đối tượng nghiên cứu
 
-Hệ thống phần mềm quản lý bãi đỗ xe có tích hợp chức năng đặt chỗ trước, phục vụ ba nhóm người dùng: khách hàng gửi xe (xe máy/ô tô), nhân viên vận hành bãi và quản trị viên hệ thống.
+Hệ thống Quản lý bãi đỗ xe trực tuyến cho một đơn vị vận hành nhiều bãi, có tích hợp đặt chỗ trước, phục vụ ba nhóm: khách hàng gửi xe (xe máy/ô tô), nhân viên được phân công một bãi trong MVP và quản trị viên.
 
 ### 1.3.2. Phạm vi nghiên cứu
 
@@ -33,9 +35,17 @@ Hệ thống phần mềm quản lý bãi đỗ xe có tích hợp chức năng 
 
 - Chức năng đăng ký/đăng nhập, quản lý tài khoản và phương tiện.
 - Tìm kiếm bãi đỗ, xem tình trạng chỗ trống, đặt chỗ và hủy đặt chỗ.
-- Check-in/check-out xe, tính phí tự động và thanh toán mô phỏng.
+- Check-in/check-out xe, tính phí theo thời gian thực tế với đơn giá lưu khi vào; Staff ghi nhận thanh toán tại quầy bằng tiền mặt hoặc mô phỏng.
 - Cấu hình bãi đỗ, khu vực, vị trí và bảng giá (dành cho Admin).
 - Báo cáo thống kê vận hành cơ bản (lượt xe, doanh thu, tỷ lệ lấp đầy).
+
+**Giả định và giới hạn của phiên bản đầu:**
+
+- Chia nhóm vị trí đặt trước và walk-in; chưa tối ưu việc dùng chung hai nhóm.
+- Slot có phiên OPEN chưa nhận đặt mới cho ngày khác; xe có lịch CONFIRMED chưa giải quyết không mở walk-in. Các chính sách bảo thủ này được công bố cho người dùng.
+- Khi xe ra, giữ khoảng đệm 15 phút theo giờ ra thực tế; không thu phí khoảng đệm. Hủy/no-show không tạo khoảng đệm.
+- Có chính sách đổi vị trí hoặc ghi nhận không phục vụ được khi có sự cố; không cam kết tuyệt đối vị trí trong mọi tình huống.
+- Dữ liệu cập nhật gần thời gian thực bằng polling; không thu tiền trước hoặc thanh toán ngân hàng online trong MVP.
 
 **Phạm vi không thực hiện (ngoài đề tài):**
 
@@ -50,11 +60,11 @@ Hệ thống phần mềm quản lý bãi đỗ xe có tích hợp chức năng 
 
 1. **Phân tích nghiệp vụ:** Xác định bài toán, phân tích các vai trò người dùng (Customer, Staff, Admin), xây dựng quy trình nghiệp vụ toàn trình từ đặt chỗ đến thanh toán và xác định các trường hợp ngoại lệ cần xử lý.
 
-2. **Thiết kế hệ thống:** Xây dựng sơ đồ use case, thiết kế cơ sở dữ liệu (ERD) với 9 entity chính, đặc tả API cho các nhóm chức năng và thiết kế giao diện người dùng cho từng vai trò.
+2. **Thiết kế hệ thống:** Xây dựng sơ đồ use case, thiết kế cơ sở dữ liệu (ERD) với 9 entity nghiệp vụ chính cùng AuditLog và dữ liệu hạ tầng chống lặp, đặc tả API cho các nhóm chức năng và thiết kế giao diện người dùng cho từng vai trò.
 
-3. **Xây dựng backend:** Cài đặt hệ thống xác thực, các API CRUD cấu hình bãi đỗ, logic nghiệp vụ đặt chỗ (khóa tạm, hết hạn tự động), check-in/check-out và tính phí tự động.
+3. **Xây dựng backend:** Cài đặt hệ thống xác thực, các API CRUD cấu hình bãi đỗ, logic đặt chỗ (khả dụng theo thời gian, kiểm soát đồng thời, hết hạn tự động), check-in/check-out và tính phí tự động.
 
-4. **Xây dựng frontend:** Giao diện khách hàng (tìm bãi, đặt chỗ, lịch sử, thanh toán), giao diện nhân viên (check-in/check-out, tra cứu) và giao diện quản trị viên (cấu hình, báo cáo).
+4. **Xây dựng frontend:** Giao diện khách hàng (tìm bãi, đặt chỗ, lịch sử, xem phí/hóa đơn), giao diện nhân viên (check-in/check-out, tra cứu) và giao diện quản trị viên (cấu hình, báo cáo).
 
 5. **Kiểm thử:** Kiểm thử các luồng nghiệp vụ chính và các trường hợp ngoại lệ (no-show, race condition, quá giờ đặt, walk-in...).
 
@@ -70,7 +80,7 @@ Hệ thống phần mềm quản lý bãi đỗ xe có tích hợp chức năng 
 
 - **Phát triển lặp tăng dần (Iterative):** Chia hệ thống thành các nhóm chức năng (MUST HAVE → SHOULD HAVE → NICE TO HAVE), ưu tiên hoàn thiện các chức năng bắt buộc trước khi mở rộng.
 
-- **Kiểm thử thủ công theo kịch bản:** Xây dựng các kịch bản kiểm thử bao phủ luồng nghiệp vụ chính và các trường hợp ngoại lệ để đảm bảo tính đúng đắn của hệ thống.
+- **Kiểm thử theo kịch bản và kiểm thử tích hợp:** Kiểm tra luồng chính/ngoại lệ trên giao diện, đồng thời kiểm tra request đồng thời, phân quyền, rollback và chống ghi trùng với SQL Server. Chỉ ghi nhận đã đạt khi có kết quả kiểm thử.
 
 ---
 
