@@ -1246,7 +1246,7 @@ END;
 GO
 CREATE OR ALTER PROCEDURE dbo.usp_ListReservations
     @ActorId int,@ReservationId int = NULL,@ParkingLotId int = NULL,@Status varchar(15) = NULL,
-    @Page int = 1,@PageSize int = 50
+    @Page int = 1,@PageSize int = 50,@ReservationCode varchar(40) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -1262,6 +1262,7 @@ BEGIN
     FROM dbo.Reservation r JOIN dbo.ParkingSlot s ON s.id = r.slot_id JOIN dbo.Zone z ON z.id = s.zone_id
     JOIN dbo.ParkingLot p ON p.id = z.parking_lot_id JOIN dbo.Users u ON u.id = @ActorId
     WHERE (@ReservationId IS NULL OR r.id = @ReservationId) AND (@ParkingLotId IS NULL OR z.parking_lot_id = @ParkingLotId)
+        AND (@ReservationCode IS NULL OR r.reservation_code = @ReservationCode)
         AND (@Status IS NULL OR r.status = @Status)
         AND (u.role = 'Admin' OR (u.role = 'Customer' AND r.user_id = @ActorId)
             OR (u.role = 'Staff' AND u.assigned_parking_lot_id = z.parking_lot_id))
@@ -1270,7 +1271,7 @@ END;
 GO
 CREATE OR ALTER PROCEDURE dbo.usp_ListSessions
     @ActorId int,@SessionId int = NULL,@ParkingLotId int = NULL,@Status varchar(12) = NULL,
-    @Plate nvarchar(32) = NULL,@Page int = 1,@PageSize int = 50
+    @Plate nvarchar(32) = NULL,@Page int = 1,@PageSize int = 50,@SessionCode varchar(40) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -1281,6 +1282,7 @@ BEGIN
     SELECT d.*,CAST(CASE WHEN d.status = 'OPEN' AND d.planned_end_time < @Now THEN 1 ELSE 0 END AS bit) AS is_overstay
     FROM dbo.vw_SessionDetails d JOIN dbo.Users u ON u.id = @ActorId
     WHERE (@SessionId IS NULL OR d.id = @SessionId) AND (@ParkingLotId IS NULL OR d.parking_lot_id = @ParkingLotId)
+        AND (@SessionCode IS NULL OR d.session_code = @SessionCode)
         AND (@Status IS NULL OR d.status = @Status) AND (@Plate IS NULL OR d.normalized_plate_number_snapshot = @Normalized)
         AND (u.role = 'Admin' OR (u.role = 'Customer' AND d.customer_id = @ActorId)
             OR (u.role = 'Staff' AND u.assigned_parking_lot_id = d.parking_lot_id))
@@ -1659,7 +1661,7 @@ WHERE (a.slot_id = b.slot_id AND a.start_time < DATEADD(MINUTE,15,b.end_time) AN
 - `available_slots` trong dashboard là trạng thái vận hành AVAILABLE, có thể còn cooldown hoặc lịch sắp tới; số có thể **nhận xe ngay/đặt được** phải lấy từ truy vấn khả dụng tương ứng. Không cộng reservation vào occupied_slots.
 - Sửa biển số walk-in không đổi customer_id/vehicle_id. Nếu phiên đã gắn xe đăng ký, chỉ sửa cách trình bày biển số, không đổi biển số chuẩn hóa sang xe khác; không tự gán lịch sử sang chủ mới.
 - Khóa Customer không đóng phiên đang gửi: Staff vẫn check-out được. Các lịch đặt của tài khoản bị khóa cần xử lý theo nghiệp vụ; không xóa lịch sử. Không đổi bãi/khu của cấu hình đã tạo để báo cáo lịch sử giữ đúng địa điểm.
-- Backend hiện tại đã gọi procedure qua `Microsoft.Data.SqlClient`, có API và giao diện thật cho đăng ký/đăng nhập, phương tiện, tìm/đặt/hủy/lịch sử đặt chỗ và tác vụ hết hạn. Check-in/out, quản trị và báo cáo còn phải nối API; xem tiến độ trong `README.md`. Nếu chọn EF migration về sau, dùng một quy trình quản lý schema nhất quán, không tự chạy `EnsureCreated()` hoặc initial migration lên database đã tạo bằng script này.
+- Backend hiện tại gọi procedure qua `Microsoft.Data.SqlClient`, có API và giao diện thật cho đăng ký/đăng nhập, phương tiện, tìm/đặt/hủy/lịch sử, tác vụ hết hạn, nhận xe, xem phí, thu tiền và xác nhận xe ra. Customer có lịch sử gửi xe/phiếu thu. Quản trị, dashboard, báo cáo và màn hình xử lý sự cố/sửa biển số walk-in còn phải nối API; xem tiến độ trong `README.md`. Database cũ chỉ cần cập nhật bộ lọc mã bằng `scripts/sql/20261022_staff_queries.sql`; không tạo lại bảng. Nếu chọn EF migration về sau, dùng một quy trình quản lý schema nhất quán, không tự chạy `EnsureCreated()` hoặc initial migration lên database đã tạo bằng script này.
 
 Connection string mẫu cho môi trường cục bộ (chỉnh server theo máy; giữ thông tin nhạy cảm trong User Secrets/cấu hình môi trường):
 
