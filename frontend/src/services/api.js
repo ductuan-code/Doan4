@@ -79,25 +79,24 @@ export const sessionAPI = {
 // Admin APIs
 export const adminAPI = {
   // Parking Lots
-  createParkingLot: (data) => api.post('/admin/parking-lots', data),
-  updateParkingLot: (id, data) => api.put(`/admin/parking-lots/${id}`, data),
-  deleteParkingLot: (id) => api.delete(`/admin/parking-lots/${id}`),
+  getParkingLots: () => api.get('/admin/parking-lots'),
+  createParkingLot: (data, key) => api.post('/admin/parking-lots', data, { headers: { 'Idempotency-Key': key } }),
+  updateParkingLot: (id, data, key) => api.put(`/admin/parking-lots/${id}`, data, { headers: { 'Idempotency-Key': key } }),
   
   // Zones
   getZones: (parkingLotId) => api.get(`/admin/parking-lots/${parkingLotId}/zones`),
-  createZone: (data) => api.post('/admin/zones', data),
-  updateZone: (id, data) => api.put(`/admin/zones/${id}`, data),
-  deleteZone: (id) => api.delete(`/admin/zones/${id}`),
+  createZone: (data, key) => api.post('/admin/zones', data, { headers: { 'Idempotency-Key': key } }),
+  updateZone: (id, data, key) => api.put(`/admin/zones/${id}`, data, { headers: { 'Idempotency-Key': key } }),
   
   // Slots
   getSlots: (zoneId) => api.get(`/admin/zones/${zoneId}/slots`),
-  createSlot: (data) => api.post('/admin/slots', data),
-  updateSlot: (id, data) => api.put(`/admin/slots/${id}`, data),
-  deleteSlot: (id) => api.delete(`/admin/slots/${id}`),
+  createSlot: (data, key) => api.post('/admin/slots', data, { headers: { 'Idempotency-Key': key } }),
+  updateSlot: (id, data, key) => api.put(`/admin/slots/${id}`, data, { headers: { 'Idempotency-Key': key } }),
+  setSlotMaintenance: (id, data, key) => api.put(`/admin/slots/${id}/maintenance`, data, { headers: { 'Idempotency-Key': key } }),
   
   // Pricing
-  getPricing: () => api.get('/admin/pricing'),
-  updatePricing: (id, data) => api.put(`/admin/pricing/${id}`, data),
+  getPricing: (params) => api.get('/admin/pricing', { params }),
+  updatePricing: (vehicleType, data, key) => api.put(`/admin/pricing/${vehicleType}`, data, { headers: { 'Idempotency-Key': key } }),
   
   // Users
   getUsers: () => api.get('/admin/users'),
