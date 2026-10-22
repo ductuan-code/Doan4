@@ -13,6 +13,7 @@ import CustomerDashboard from './pages/customer/Dashboard'
 import VehicleManagement from './pages/customer/VehicleManagement'
 import SearchParking from './pages/customer/SearchParking'
 import ReservationHistory from './pages/customer/ReservationHistory'
+import SessionHistory from './pages/SessionHistory'
 
 // Staff Pages
 import StaffDashboard from './pages/staff/Dashboard'
@@ -77,6 +78,7 @@ function App() {
             <Route path="/customer/vehicles" element={<VehicleManagement />} />
             <Route path="/customer/search" element={<SearchParking />} />
             <Route path="/customer/history" element={<ReservationHistory />} />
+            <Route path="/customer/sessions" element={<SessionHistory />} />
             </Route>
 
             <Route element={<ProtectedRoute roles={['Staff']} />}>

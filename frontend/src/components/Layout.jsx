@@ -31,6 +31,7 @@ const menuItems = {
     { text: 'Phương tiện', icon: <DirectionsCarIcon />, path: '/customer/vehicles' },
     { text: 'Tìm bãi đỗ xe', icon: <SearchIcon />, path: '/customer/search' },
     { text: 'Lịch sử đặt chỗ', icon: <HistoryIcon />, path: '/customer/history' },
+    { text: 'Lịch sử gửi xe', icon: <HistoryIcon />, path: '/customer/sessions' },
   ],
   Staff: [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/staff/dashboard' },
@@ -207,8 +208,8 @@ function Layout({ children }) {
       </Drawer>
 
       {/* Main content */}
-      <Box component="main" sx={{ flexGrow: 1, p: 3, mt: { xs: 8, md: 0 }, bgcolor: '#f0f4ff', minHeight: '100vh' }}>
-        {!['/customer/vehicles', '/customer/search', '/customer/history'].includes(location.pathname) && (
+      <Box component="main" sx={{ flexGrow: 1, minWidth: 0, p: { xs: 2, sm: 3 }, mt: { xs: 8, md: 0 }, bgcolor: '#f0f4ff', minHeight: '100vh' }}>
+        {!['/customer/vehicles', '/customer/search', '/customer/history', '/customer/sessions', '/staff/checkin', '/staff/checkout'].includes(location.pathname) && (
           <Alert severity="info" sx={{ mb: 2 }}>
             Màn hình đang hoàn thiện. Dữ liệu và thao tác tại đây hiện chỉ dùng để minh họa.
           </Alert>
