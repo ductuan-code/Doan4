@@ -5,7 +5,7 @@ using ParkingLotAPI.Models;
 
 namespace ParkingLotAPI.Data;
 
-public sealed class ParkingRepository(IConfiguration configuration)
+public sealed partial class ParkingRepository(IConfiguration configuration)
 {
     private string ConnectionString => configuration.GetConnectionString("ParkingDatabase")
         ?? throw new ApiException(503, "DATABASE_NOT_CONFIGURED", "Chưa cấu hình kết nối database.");
