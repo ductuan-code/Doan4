@@ -1,143 +1,94 @@
-import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Alert, Box, Button, Card, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
 import Layout from '../../components/Layout'
-import { reservationAPI } from '../../services/api'
-import {
-  Box, Typography, Card, Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, Chip, Button, Avatar
-} from '@mui/material'
-import AddIcon from '@mui/icons-material/Add'
-import EventAvailableIcon from '@mui/icons-material/EventAvailable'
+import { getErrorMessage, reservationAPI } from '../../services/api'
+import { formatParkingTime } from '../../utils/reservationTime'
 
-const mockReservations = [
-  { id: 1, parkingLotName: 'Bãi xe A', slotCode: 'A-01', plateNumber: '29A-12345', startTime: '2026-10-07T08:00:00', endTime: '2026-10-07T10:00:00', status: 'CONFIRMED' },
-  { id: 2, parkingLotName: 'Bãi xe B', slotCode: 'B-05', plateNumber: '30B-67890', startTime: '2026-10-06T14:00:00', endTime: '2026-10-06T16:00:00', status: 'COMPLETED' },
-  { id: 3, parkingLotName: 'Bãi xe A', slotCode: 'A-03', plateNumber: '29A-12345', startTime: '2026-10-05T09:00:00', endTime: '2026-10-05T11:00:00', status: 'CANCELLED' },
-  { id: 4, parkingLotName: 'Bãi xe C', slotCode: 'C-02', plateNumber: '29A-12345', startTime: '2026-10-04T07:00:00', endTime: '2026-10-04T08:00:00', status: 'EXPIRED' },
-]
-
-const statusConfig = {
-  CONFIRMED: { label: 'Đã xác nhận', bg: '#f0fdf4', color: '#059669', border: '#bbf7d0' },
-  COMPLETED: { label: 'Hoàn thành',  bg: '#eff6ff', color: '#2563eb', border: '#bfdbfe' },
-  CANCELLED: { label: 'Đã hủy',      bg: '#fff1f2', color: '#dc2626', border: '#fecaca' },
-  EXPIRED:   { label: 'Hết hạn',     bg: '#f8fafc', color: '#64748b', border: '#e2e8f0' },
+const statuses = {
+  CONFIRMED: ['Đã xác nhận', 'success'], CHECKED_IN: ['Đang gửi xe', 'info'],
+  COMPLETED: ['Hoàn thành', 'primary'], CANCELLED: ['Đã hủy', 'error'],
+  EXPIRED: ['Hết hạn', 'default'], UNFULFILLED: ['Không phục vụ được', 'warning']
 }
-
-function ReservationHistory() {
-  const [reservations, setReservations] = useState([])
+const PAGE_SIZE = 20
+export default function ReservationHistory() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [rows, setRows] = useState([])
+  const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
-
-  useEffect(() => { loadReservations() }, [])
-
-  const loadReservations = async () => {
+  const [error, setError] = useState('')
+  const [notice, setNotice] = useState(location.state?.reservationCode ? `Đặt chỗ thành công! Mã: ${location.state.reservationCode}` : '')
+  const [selected, setSelected] = useState(null)
+  const [saving, setSaving] = useState(false)
+  const pending = useRef(new Map())
+  const savingRef = useRef(false)
+  const generation = useRef(0)
+  useEffect(() => {
+    if (location.state?.reservationCode) navigate(location.pathname, { replace: true, state: null })
+  }, [location.state, location.pathname, navigate])
+  const load = useCallback(async () => {
+    const current = ++generation.current
+    setLoading(true)
     try {
-      const response = await reservationAPI.getMyReservations()
-      setReservations(response.data)
-    } catch {
-      setReservations(mockReservations)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleCancel = async (id) => {
-    if (!window.confirm('Bạn có chắc muốn hủy đặt chỗ này?')) return
-    try {
-      await reservationAPI.cancel(id)
-      setReservations(reservations.map(r => r.id === id ? { ...r, status: 'CANCELLED' } : r))
+      const { data } = await reservationAPI.getMyReservations(page, PAGE_SIZE)
+      if (current === generation.current) { setRows(data); setError('') }
     } catch (err) {
-      alert(err.response?.data?.message || 'Không thể hủy đặt chỗ')
-    }
+      if (current === generation.current) { setRows([]); setError(getErrorMessage(err)) }
+    } finally { if (current === generation.current) setLoading(false) }
+  }, [page])
+  useEffect(() => {
+    load()
+    const timer = setInterval(load, 30000)
+    return () => { generation.current++; clearInterval(timer) }
+  }, [load])
+  const cancel = async () => {
+    if (savingRef.current) return
+    const id = selected.id
+    if (!pending.current.has(id)) pending.current.set(id, crypto.randomUUID())
+    savingRef.current = true; setSaving(true); setError('')
+    try {
+      await reservationAPI.cancel(id, pending.current.get(id))
+      pending.current.delete(id); setSelected(null); setNotice('Đã hủy lượt đặt chỗ.'); await load()
+    } catch (err) { setError(getErrorMessage(err)) }
+    finally { savingRef.current = false; setSaving(false) }
   }
-
-  const formatDate = (str) => new Date(str).toLocaleString('vi-VN')
-
-  return (
-    <Layout>
-      <Box>
-        {/* Header */}
-        <Box sx={{
-          background: 'linear-gradient(135deg, #7c3aed, #a78bfa)',
-          borderRadius: 3, p: 3, mb: 3, color: 'white',
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-        }}>
-          <Box>
-            <Typography variant="h5" fontWeight={700}>Lịch Sử Đặt Chỗ</Typography>
-            <Typography variant="body2" sx={{ opacity: 0.85 }}>Danh sách các lượt đặt chỗ của bạn</Typography>
-          </Box>
-          <Button
-            component={Link} to="/customer/search"
-            variant="contained"
-            startIcon={<AddIcon />}
-            sx={{ bgcolor: 'white', color: '#7c3aed', '&:hover': { bgcolor: '#faf5ff' }, fontWeight: 700 }}
-          >
-            Đặt chỗ mới
-          </Button>
-        </Box>
-
-        <Card sx={{ borderRadius: 3 }}>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow sx={{ bgcolor: '#f8faff' }}>
-                  {['Mã đặt chỗ', 'Bãi đỗ', 'Vị trí', 'Biển số', 'Thời gian', 'Trạng thái', 'Thao tác'].map(h => (
-                    <TableCell key={h} sx={{ fontWeight: 700, color: '#7c3aed' }}>{h}</TableCell>
-                  ))}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {loading ? (
-                  <TableRow><TableCell colSpan={7} align="center" sx={{ py: 4 }}>Đang tải...</TableCell></TableRow>
-                ) : reservations.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
-                      <EventAvailableIcon sx={{ fontSize: 48, color: '#cbd5e1', mb: 1 }} />
-                      <Typography color="text.secondary" mb={2}>Chưa có lượt đặt chỗ nào</Typography>
-                      <Button component={Link} to="/customer/search" variant="contained">Đặt chỗ ngay</Button>
-                    </TableCell>
-                  </TableRow>
-                ) : reservations.map((res) => {
-                  const sc = statusConfig[res.status] || statusConfig.EXPIRED
-                  return (
-                    <TableRow key={res.id} hover sx={{ '&:hover': { bgcolor: '#f8faff' } }}>
-                      <TableCell>
-                        <Typography fontWeight={700} color="primary">#{res.id}</Typography>
-                      </TableCell>
-                      <TableCell>{res.parkingLotName}</TableCell>
-                      <TableCell>
-                        <Chip label={res.slotCode} size="small" sx={{ bgcolor: '#eff6ff', color: '#2563eb', fontWeight: 700 }} />
-                      </TableCell>
-                      <TableCell>{res.plateNumber}</TableCell>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight={500}>{formatDate(res.startTime)}</Typography>
-                        <Typography variant="caption" color="text.secondary">{formatDate(res.endTime)}</Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={sc.label} size="small"
-                          sx={{ bgcolor: sc.bg, color: sc.color, border: `1px solid ${sc.border}`, fontWeight: 600 }}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        {res.status === 'CONFIRMED' && (
-                          <Button size="small" onClick={() => handleCancel(res.id)}
-                            sx={{ color: '#dc2626', borderColor: '#fecaca', '&:hover': { bgcolor: '#fff1f2' } }}
-                            variant="outlined"
-                          >
-                            Hủy
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Card>
-      </Box>
-    </Layout>
-  )
+  return <Layout>
+    <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', alignItems: { sm: 'center' }, gap: 2, mb: 3, p: 3, borderRadius: 3, color: 'white', background: 'linear-gradient(135deg, #7c3aed, #a78bfa)' }}>
+      <Box><Typography variant="h5" sx={{ fontWeight: 700 }}>Lịch sử đặt chỗ</Typography><Typography sx={{ opacity: 0.9 }}>Thời gian hiển thị theo giờ Việt Nam · tự cập nhật mỗi 30 giây.</Typography></Box>
+      <Button component={Link} to="/customer/search" variant="contained" sx={{ flexShrink: 0, bgcolor: 'white', color: '#7c3aed', '&:hover': { bgcolor: '#faf5ff' } }}>Đặt chỗ mới</Button>
+    </Stack>
+    {notice && <Alert severity="success" onClose={() => setNotice('')} sx={{ mb: 2 }}>{notice}</Alert>}
+    {error && <Alert severity="error" sx={{ mb: 2 }}>{error}<Button onClick={load} disabled={loading}>Tải lại</Button></Alert>}
+    <Card sx={{ borderRadius: 3 }}><TableContainer><Table>
+      <TableHead><TableRow sx={{ bgcolor: '#faf5ff' }}>{['Mã đặt chỗ', 'Bãi / vị trí', 'Phương tiện', 'Thời gian', 'Trạng thái', 'Thao tác'].map(label => <TableCell key={label} sx={{ fontWeight: 700, color: '#7c3aed' }}>{label}</TableCell>)}</TableRow></TableHead>
+      <TableBody>
+        {loading ? <TableRow><TableCell colSpan={6} align="center">Đang tải lịch đặt…</TableCell></TableRow> : !rows.length ? <TableRow><TableCell colSpan={6} align="center">{error ? 'Chưa tải được dữ liệu.' : page === 1 ? 'Chưa có lượt đặt chỗ nào' : 'Không có lượt đặt ở trang này.'}</TableCell></TableRow> : rows.map(row => {
+          const [label, color] = statuses[row.status] || [row.status, 'default']
+          return <TableRow key={row.id} hover>
+            <TableCell sx={{ maxWidth: 180, overflowWrap: 'anywhere' }}>{row.reservationCode}</TableCell>
+            <TableCell>{row.parkingLotName}<Typography variant="body2" sx={{ color: 'text.secondary' }}>{row.zoneName} · {row.slotCode}</Typography></TableCell>
+            <TableCell>{row.plateNumber}<Typography variant="body2">{row.vehicleType === 'CAR' ? 'Ô tô' : 'Xe máy'}</Typography></TableCell>
+            <TableCell><Typography variant="body2">{formatParkingTime(row.startTime)}</Typography><Typography variant="body2">→ {formatParkingTime(row.endTime)}</Typography></TableCell>
+            <TableCell><Chip label={label} color={color} size="small" /></TableCell>
+            <TableCell>{row.canCancel && Date.now() < Date.parse(row.startTime) && <Button color="error" disabled={saving} onClick={() => { setSelected(row); setError('') }}>Hủy</Button>}</TableCell>
+          </TableRow>
+        })}
+      </TableBody>
+    </Table></TableContainer></Card>
+    <Stack direction="row" sx={{ justifyContent: 'flex-end', alignItems: 'center', gap: 2, mt: 2, flexWrap: 'wrap' }}>
+      <Button disabled={loading || saving || page === 1} onClick={() => setPage(page - 1)}>Trang trước</Button>
+      <Typography>Trang {page}</Typography>
+      <Button disabled={loading || saving || rows.length < PAGE_SIZE || page >= 1000000} onClick={() => setPage(page + 1)}>Trang sau</Button>
+      <Button disabled={loading || saving} onClick={load}>Làm mới</Button>
+    </Stack>
+    <Dialog open={Boolean(selected)} onClose={() => { if (!saving) setSelected(null) }}>
+      <DialogTitle>Hủy đặt chỗ</DialogTitle>
+      <DialogContent>
+        <Typography>Bạn muốn hủy lượt {selected?.reservationCode}? Chỉ có thể hủy trước giờ bắt đầu.</Typography>
+        {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
+      </DialogContent>
+      <DialogActions><Button disabled={saving} onClick={() => setSelected(null)}>Đóng</Button><Button disabled={saving} color="error" onClick={cancel}>{saving ? 'Đang hủy…' : 'Xác nhận hủy'}</Button></DialogActions>
+    </Dialog>
+  </Layout>
 }
-
-export default ReservationHistory

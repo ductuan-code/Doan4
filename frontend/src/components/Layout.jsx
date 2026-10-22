@@ -208,7 +208,7 @@ function Layout({ children }) {
 
       {/* Main content */}
       <Box component="main" sx={{ flexGrow: 1, p: 3, mt: { xs: 8, md: 0 }, bgcolor: '#f0f4ff', minHeight: '100vh' }}>
-        {location.pathname !== '/customer/vehicles' && (
+        {!['/customer/vehicles', '/customer/search', '/customer/history'].includes(location.pathname) && (
           <Alert severity="info" sx={{ mb: 2 }}>
             Màn hình đang hoàn thiện. Dữ liệu và thao tác tại đây hiện chỉ dùng để minh họa.
           </Alert>
