@@ -1,6 +1,24 @@
 @ParkingLotAPI_HostAddress = http://localhost:5143
 
-GET {{ParkingLotAPI_HostAddress}}/weatherforecast/
+GET {{ParkingLotAPI_HostAddress}}/api/health
 Accept: application/json
 
 ###
+
+POST {{ParkingLotAPI_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "customer1@parking.test",
+  "password": "123456"
+}
+
+### Copy token trong kết quả đăng nhập vào biến bên dưới.
+@token = REPLACE_WITH_LOGIN_TOKEN
+
+GET {{ParkingLotAPI_HostAddress}}/api/parking-lots
+Authorization: Bearer {{token}}
+
+###
+GET {{ParkingLotAPI_HostAddress}}/api/reservations/my?page=1&pageSize=20
+Authorization: Bearer {{token}}

@@ -1659,19 +1659,19 @@ WHERE (a.slot_id = b.slot_id AND a.start_time < DATEADD(MINUTE,15,b.end_time) AN
 - `available_slots` trong dashboard là trạng thái vận hành AVAILABLE, có thể còn cooldown hoặc lịch sắp tới; số có thể **nhận xe ngay/đặt được** phải lấy từ truy vấn khả dụng tương ứng. Không cộng reservation vào occupied_slots.
 - Sửa biển số walk-in không đổi customer_id/vehicle_id. Nếu phiên đã gắn xe đăng ký, chỉ sửa cách trình bày biển số, không đổi biển số chuẩn hóa sang xe khác; không tự gán lịch sử sang chủ mới.
 - Khóa Customer không đóng phiên đang gửi: Staff vẫn check-out được. Các lịch đặt của tài khoản bị khóa cần xử lý theo nghiệp vụ; không xóa lịch sử. Không đổi bãi/khu của cấu hình đã tạo để báo cáo lịch sử giữ đúng địa điểm.
-- Backend hiện tại vẫn là project khởi tạo: file này chuẩn bị database và SQL; còn phải cài DbContext/connection, auth, API và nối frontend mới thành hệ thống chạy hoàn chỉnh. Nếu chọn EF migration về sau, dùng một quy trình quản lý schema nhất quán, không tự chạy `EnsureCreated()` hoặc initial migration lên database đã tạo bằng script này.
+- Backend hiện tại đã gọi procedure qua `Microsoft.Data.SqlClient`, có API và giao diện thật cho đăng ký/đăng nhập, phương tiện, tìm/đặt/hủy/lịch sử đặt chỗ và tác vụ hết hạn. Check-in/out, quản trị và báo cáo còn phải nối API; xem tiến độ trong `README.md`. Nếu chọn EF migration về sau, dùng một quy trình quản lý schema nhất quán, không tự chạy `EnsureCreated()` hoặc initial migration lên database đã tạo bằng script này.
 
 Connection string mẫu cho môi trường cục bộ (chỉnh server theo máy; giữ thông tin nhạy cảm trong User Secrets/cấu hình môi trường):
 
 ```json
 {
   "ConnectionStrings": {
-    "ParkingDatabase": "Server=localhost\\SQLEXPRESS;Database=ParkingLotOnline;Trusted_Connection=True;Encrypt=True;TrustServerCertificate=True;"
+    "ParkingDatabase": "Server=localhost;Database=ParkingLotOnline;Trusted_Connection=True;Encrypt=True;TrustServerCertificate=True;"
   }
 }
 ```
 
-Nếu dùng LocalDB, phần server là `(localdb)\\MSSQLLocalDB`. `TrustServerCertificate=True` trong ví dụ phục vụ kết nối cục bộ với chứng chỉ tự ký. Khi chạy API bằng tài khoản database riêng, gán user đó vào role `parking_backend`; tài khoản Windows quản trị dùng để chạy script khởi tạo không phải cấu hình phân quyền chạy API.
+Máy hiện tại sau khi cài lại Windows dùng instance mặc định `localhost`; nếu cài instance có tên Express thì dùng `localhost\\SQLEXPRESS`. Nếu dùng LocalDB, phần server là `(localdb)\\MSSQLLocalDB`. `TrustServerCertificate=True` trong ví dụ phục vụ kết nối cục bộ với chứng chỉ tự ký. Khi chạy API bằng tài khoản database riêng, gán user đó vào role `parking_backend`; tài khoản Windows quản trị dùng để chạy script khởi tạo không phải cấu hình phân quyền chạy API.
 
 ## 4. Kiểm tra đã thực hiện
 
