@@ -30,6 +30,7 @@ var tokens = new TokenService(signingKey,
     builder.Configuration["Jwt:Audience"] ?? "ParkingLotWeb");
 builder.Services.AddSingleton(tokens);
 builder.Services.AddScoped<ParkingRepository>();
+builder.Services.AddHostedService<ReservationExpiryService>();
 builder.Services.AddSingleton<IPasswordHasher<object>, PasswordHasher<object>>();
 builder.Services.AddControllers().AddJsonOptions(options =>
     options.JsonSerializerOptions.UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow);
