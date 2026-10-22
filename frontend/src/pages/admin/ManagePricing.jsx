@@ -1,97 +1,101 @@
-import { useState } from 'react'
-import Layout from '../../components/Layout'
+import { useEffect, useState } from 'react'
 import {
-  Box, Typography, Card, Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, Button, Dialog, DialogTitle, DialogContent,
-  DialogActions, TextField, IconButton, Tooltip, Alert, Chip
+  Alert, Box, Button, Card, Dialog, DialogActions, DialogContent, DialogTitle,
+  Chip, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  TextField, Typography
 } from '@mui/material'
-import EditIcon from '@mui/icons-material/Edit'
-import TwoWheelerIcon from '@mui/icons-material/TwoWheeler'
-import DirectionsCarIcon from '@mui/icons-material/DirectionsCar'
+import Layout from '../../components/Layout'
+import { adminAPI, getErrorMessage } from '../../services/api'
+import { formatParkingTime } from '../../utils/reservationTime'
+import { formatMoney } from '../../components/SessionReceipt'
+import useAdminMutation from './useAdminMutation'
 
-const mockPricing = [
-  { id: 1, vehicleType: 'MOTORBIKE', pricePerHour: 5000 },
-  { id: 2, vehicleType: 'CAR', pricePerHour: 20000 },
-]
-
-function ManagePricing() {
-  const [pricing, setPricing] = useState(mockPricing)
-  const [openDialog, setOpenDialog] = useState(false)
-  const [editingItem, setEditingItem] = useState(null)
-  const [price, setPrice] = useState('')
+const types = { MOTORBIKE: 'Xe máy', CAR: 'Ô tô' }
+export default function ManagePricing() {
+  const [rows, setRows] = useState([])
+  const [history, setHistory] = useState(false)
+  const [page, setPage] = useState(1)
+  const [revision, setRevision] = useState(0)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-
-  const handleOpen = (item) => {
-    setEditingItem(item)
-    setPrice(item.pricePerHour.toString())
+  const [notice, setNotice] = useState('')
+  const [type, setType] = useState(null)
+  const [price, setPrice] = useState('')
+  const [reason, setReason] = useState('')
+  const mutation = useAdminMutation()
+  useEffect(() => {
+    let current = true
+    setLoading(true)
     setError('')
-    setOpenDialog(true)
+    setRows([])
+    adminAPI.getPricing({ includeHistory: history, page, pageSize: 20 })
+      .then(r => { if (current) setRows(r.data) })
+      .catch(e => { if (current) setError(getErrorMessage(e)) })
+      .finally(() => { if (current) setLoading(false) })
+    return () => { current = false }
+  }, [history, page, revision])
+  const displayed = history ? rows : Object.keys(types).map(vehicleType => rows.find(r => r.vehicleType === vehicleType) ?? { vehicleType })
+  const open = row => {
+    setType(row.vehicleType)
+    setPrice(row.pricePerHour?.toString() ?? '')
+    setReason('')
+    mutation.setError('')
+    setNotice('')
   }
-
-  const handleSave = () => {
-    const val = parseInt(price)
-    if (!val || val <= 0) { setError('Giá phải là số dương'); return }
-    setPricing(pricing.map(p => p.id === editingItem.id ? { ...p, pricePerHour: val } : p))
-    setOpenDialog(false)
+  const submit = async event => {
+    event.preventDefault()
+    const value = Number(price)
+    if (!Number.isSafeInteger(value) || value < 1 || value > 1000000000 || !reason.trim()) {
+      mutation.setError('Giá phải là số nguyên từ 1 đến 1.000.000.000 VND và cần lý do thay đổi.')
+      return
+    }
+    const data = { pricePerHour: value, reason: reason.trim() }
+    if (await mutation.save(`price:${type}`, data, key => adminAPI.updatePricing(type, data, key))) {
+      setType(null)
+      setNotice('Đã lưu phiên bản giá mới. Các xe đã vào giữ nguyên đơn giá lúc nhận xe.')
+      setPage(1)
+      setRevision(r => r + 1)
+    }
   }
-
-  return (
-    <Layout>
-      <Box>
-        <Typography variant="h5" fontWeight={700} mb={3}>Quản lý Bảng Giá</Typography>
-
-        <Card sx={{ borderRadius: 3, boxShadow: 2, maxWidth: 600 }}>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow sx={{ bgcolor: '#f5f6fa' }}>
-                  <TableCell><strong>Loại xe</strong></TableCell>
-                  <TableCell><strong>Đơn giá / giờ</strong></TableCell>
-                  <TableCell align="center"><strong>Thao tác</strong></TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {pricing.map((item) => (
-                  <TableRow key={item.id} hover>
-                    <TableCell>
-                      <Chip
-                        icon={item.vehicleType === 'CAR' ? <DirectionsCarIcon /> : <TwoWheelerIcon />}
-                        label={item.vehicleType === 'CAR' ? 'Ô tô' : 'Xe máy'}
-                        color={item.vehicleType === 'CAR' ? 'primary' : 'secondary'}
-                        variant="outlined"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Typography fontWeight={700} color="error.main" variant="h6">
-                        {item.pricePerHour.toLocaleString('vi-VN')} VNĐ
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="center">
-                      <Tooltip title="Chỉnh sửa giá">
-                        <IconButton color="primary" onClick={() => handleOpen(item)}><EditIcon /></IconButton>
-                      </Tooltip>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Card>
-
-        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="xs" fullWidth>
-          <DialogTitle>Chỉnh sửa giá - {editingItem?.vehicleType === 'CAR' ? 'Ô tô' : 'Xe máy'}</DialogTitle>
-          <DialogContent>
-            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-            <TextField label="Đơn giá / giờ (VNĐ)" fullWidth type="number" value={price} onChange={(e) => setPrice(e.target.value)} margin="normal" inputProps={{ min: 0 }} />
-          </DialogContent>
-          <DialogActions sx={{ p: 2, gap: 1 }}>
-            <Button onClick={() => setOpenDialog(false)}>Hủy</Button>
-            <Button variant="contained" onClick={handleSave}>Cập nhật</Button>
-          </DialogActions>
-        </Dialog>
+  return <Layout>
+    <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 2, justifyContent: 'space-between', mb: 2 }}>
+      <Typography variant="h4">Quản lý bảng giá</Typography>
+      <Stack direction="row" spacing={1}>
+        <Button variant="outlined" disabled={loading || mutation.saving} onClick={() => setRevision(r => r + 1)}>Tải lại</Button>
+        <Button variant="contained" disabled={mutation.saving} onClick={() => { setHistory(h => !h); setPage(1) }}>{history ? 'Giá hiện hành' : 'Lịch sử giá'}</Button>
+      </Stack>
+    </Stack>
+    <Alert severity="info" sx={{ mb: 2 }}>Giá tính theo giờ, làm tròn số giờ theo quy tắc tính phí của hệ thống. Giá mới áp dụng cho lượt nhận xe tiếp theo; xe đang gửi giữ đơn giá lúc vào.</Alert>
+    {notice && <Alert severity="success" sx={{ mb: 2 }}>{notice}</Alert>}
+    {error && <Alert severity="error" sx={{ mb: 2 }}>{error} Nhấn Tải lại để thử lại.</Alert>}
+    {loading ? <Typography role="status">Đang tải dữ liệu...</Typography> : !error && <>
+      <Typography variant="h6" sx={{ mb: 1 }}>{history ? `Lịch sử phiên bản giá · Trang ${page}` : 'Giá hiện hành'}</Typography>
+      <TableContainer component={Card}><Table sx={{ minWidth: 650 }}>
+        <TableHead><TableRow><TableCell>Loại xe</TableCell><TableCell>Giá / giờ</TableCell><TableCell>Cập nhật lần cuối</TableCell><TableCell>Trạng thái</TableCell>{!history && <TableCell>Thao tác</TableCell>}</TableRow></TableHead>
+        <TableBody>{displayed.map(r => <TableRow key={r.id ?? r.vehicleType}>
+          <TableCell>{types[r.vehicleType]}</TableCell><TableCell sx={{ fontWeight: 600 }}>{r.id ? formatMoney(r.pricePerHour) : 'Chưa cấu hình'}</TableCell>
+          <TableCell>{r.updatedAt ? formatParkingTime(r.updatedAt) : '—'}</TableCell>
+          <TableCell><Chip size="small" color={r.isActive ? 'success' : 'default'} label={r.isActive ? 'Hiện hành' : r.id ? 'Đã thay thế' : 'Chưa cấu hình'} /></TableCell>
+          {!history && <TableCell><Button disabled={mutation.saving} onClick={() => open(r)}>{r.id ? 'Sửa giá' : 'Thiết lập giá'}</Button></TableCell>}
+        </TableRow>)}{!displayed.length && <TableRow><TableCell colSpan={4}>Không có phiên bản giá ở trang này.</TableCell></TableRow>}</TableBody>
+      </Table></TableContainer>
+      {history && <Stack direction="row" sx={{ justifyContent: 'flex-end', mt: 2 }} spacing={1}>
+        <Button disabled={page === 1} onClick={() => setPage(p => p - 1)}>Trang trước</Button>
+        <Button disabled={rows.length < 20} onClick={() => setPage(p => p + 1)}>Trang sau</Button>
+      </Stack>}
+    </>}
+    <Dialog open={!!type} onClose={() => !mutation.saving && setType(null)} fullWidth maxWidth="sm">
+      <Box component="form" onSubmit={submit}>
+        <DialogTitle>Cập nhật giá {types[type]}</DialogTitle>
+        <DialogContent><Stack spacing={2} sx={{ pt: 1 }}>
+          {mutation.error && <Alert severity="error">{mutation.error}</Alert>}
+          <TextField label="Giá mỗi giờ (VND)" required disabled={mutation.saving} type="number" value={price} onChange={e => setPrice(e.target.value)}
+            slotProps={{ htmlInput: { min: 1, max: 1000000000, step: 1 } }} helperText="Số nguyên từ 1 đến 1.000.000.000 VND" />
+          <TextField label="Lý do thay đổi" required disabled={mutation.saving} value={reason} onChange={e => setReason(e.target.value)} slotProps={{ htmlInput: { maxLength: 1000 } }} />
+          <Typography sx={{ color: 'text.secondary' }}>Mỗi lần lưu tạo một phiên bản mới và giữ lại giá trước đó trong lịch sử.</Typography>
+        </Stack></DialogContent>
+        <DialogActions><Button disabled={mutation.saving} onClick={() => setType(null)}>Đóng</Button><Button type="submit" variant="contained" disabled={mutation.saving}>{mutation.saving ? 'Đang lưu...' : 'Lưu giá'}</Button></DialogActions>
       </Box>
-    </Layout>
-  )
+    </Dialog>
+  </Layout>
 }
-
-export default ManagePricing

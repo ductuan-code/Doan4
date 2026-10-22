@@ -209,7 +209,7 @@ function Layout({ children }) {
 
       {/* Main content */}
       <Box component="main" sx={{ flexGrow: 1, minWidth: 0, p: { xs: 2, sm: 3 }, mt: { xs: 8, md: 0 }, bgcolor: '#f0f4ff', minHeight: '100vh' }}>
-        {!['/customer/vehicles', '/customer/search', '/customer/history', '/customer/sessions', '/staff/checkin', '/staff/checkout'].includes(location.pathname) && (
+        {!['/customer/vehicles', '/customer/search', '/customer/history', '/customer/sessions', '/staff/checkin', '/staff/checkout', '/admin/parking-lots', '/admin/zones', '/admin/slots', '/admin/pricing'].includes(location.pathname) && (
           <Alert severity="info" sx={{ mb: 2 }}>
             Màn hình đang hoàn thiện. Dữ liệu và thao tác tại đây hiện chỉ dùng để minh họa.
           </Alert>
