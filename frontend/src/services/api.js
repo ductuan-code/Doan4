@@ -65,11 +65,15 @@ export const reservationAPI = {
   getById: (id) => api.get(`/reservations/${id}`)
 }
 
-// Parking Session API (Staff)
+// Xe vào/ra và lịch sử; server giới hạn theo tài khoản.
 export const sessionAPI = {
-  checkIn: (checkInData) => api.post('/sessions/checkin', checkInData),
-  checkOut: (sessionId) => api.post(`/sessions/${sessionId}/checkout`),
-  search: (plateNumber) => api.get(`/sessions/search`, { params: { plateNumber } })
+  getOperations: () => api.get('/staff/operations'),
+  findReservation: code => api.get('/staff/reservations/lookup', { params: { code } }),
+  checkIn: (data, key) => api.post('/sessions/checkin', data, { headers: { 'Idempotency-Key': key } }),
+  getAll: params => api.get('/sessions', { params }),
+  getById: id => api.get(`/sessions/${id}`),
+  getFee: id => api.get(`/sessions/${id}/fee`),
+  checkOut: (id, data, key) => api.post(`/sessions/${id}/checkout`, data, { headers: { 'Idempotency-Key': key } })
 }
 
 // Admin APIs
