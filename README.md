@@ -2,7 +2,7 @@
 
 ## Tiến độ ngày 22/10/2026
 
-Đã nối database SQL Server với backend ASP.NET Core và hoàn thành đăng ký, đăng nhập, phân quyền, phương tiện, tìm/đặt/hủy chỗ, nhận xe, xem phí, thu tiền và xác nhận xe ra. Khách hàng có lịch sử gửi xe và phiếu thu của mình. Admin quản lý bãi, khu vực, vị trí, bảo trì và phiên bản bảng giá bằng dữ liệu thật.
+Đã nối database SQL Server với backend ASP.NET Core và hoàn thành đăng ký, đăng nhập, phân quyền, phương tiện, tìm/đặt/hủy chỗ, nhận xe, xem phí, thu tiền và xác nhận xe ra. Khách hàng có lịch sử gửi xe và phiếu thu của mình. Admin quản lý bãi, khu vực, vị trí, bảo trì, phiên bản bảng giá và tài khoản bằng dữ liệu thật.
 
 | Phần | Trạng thái |
 |---|---|
@@ -21,7 +21,9 @@
 | Quản trị bãi / khu / vị trí | Thêm, sửa, ngừng hoạt động và kích hoạt lại; bắt buộc lý do, audit và mã yêu cầu; giữ lịch sử |
 | Bảo trì vị trí | Admin bật/tắt bảo trì; chặn khi có xe; giữ lịch đặt tương lai và khoảng đệm sau trả xe |
 | Bảng giá | Sửa giá theo loại xe, tạo phiên bản mới, xem lịch sử có phân trang; xe đã vào giữ đơn giá cũ |
-| Tài khoản, dashboard và báo cáo | Có giao diện nguyên mẫu và xử lý SQL; **chưa nối API nghiệp vụ** |
+| Quản lý tài khoản | Thêm tài khoản với mật khẩu hash, sửa thông tin/vai trò/phân công, khóa/mở; tìm kiếm, lọc và phân trang từ SQL; giữ ít nhất một Admin hoạt động |
+| Hiệu lực quyền | API đọc lại trạng thái, vai trò, bãi phân công ở mỗi yêu cầu; tự sửa tài khoản sẽ cập nhật phiên và điều hướng theo quyền mới |
+| Dashboard và báo cáo | Có giao diện nguyên mẫu và xử lý SQL; **chưa nối API nghiệp vụ** |
 
 Những trang chưa tích hợp hiển thị thông báo dữ liệu/thao tác minh họa. Dashboard chưa phản ánh số liệu vận hành thật. Không sửa báo cáo trong giai đoạn tiếp tục phát triển này.
 
@@ -33,6 +35,12 @@ Bản cập nhật nhận/trả xe bổ sung tham số lọc mã cho hai thủ t
 
 ```powershell
 sqlcmd -S localhost -d ParkingLotOnline -E -C -b -f 65001 -i scripts/sql/20261022_staff_queries.sql
+```
+
+Bản quản lý tài khoản bổ sung fingerprint cho yêu cầu tạo tài khoản và bộ lọc cho thủ tục danh sách. **Máy hiện tại đã được cập nhật**, bạn không cần chạy lại. Khi dùng database cũ trên máy khác, chạy thêm migration dưới đây; chỉ sửa hai procedure, không đổi bảng, không tạo/xóa user hoặc đổi mật khẩu. Script khởi tạo mục 1 của `sql.md` đã có nội dung mới.
+
+```powershell
+sqlcmd -S localhost -d ParkingLotOnline -E -C -b -f 65001 -i scripts/sql/20261022_admin_users.sql
 ```
 
 Mở hai cửa sổ PowerShell tại `C:\Code\doan4`:
@@ -135,6 +143,9 @@ Danh sách khả dụng là kết quả tại thời điểm tìm, không giữ 
 | PUT | `/api/admin/slots/{id}/maintenance` | Admin; bật/tắt bảo trì, bắt buộc lý do |
 | GET | `/api/admin/pricing?includeHistory=false&page=1&pageSize=20` | Admin; giá hiện hành hoặc toàn bộ phiên bản; pageSize tối đa 200 |
 | PUT | `/api/admin/pricing/{vehicleType}` | Admin; `MOTORBIKE` hoặc `CAR`, tạo phiên bản giá mới |
+| GET | `/api/admin/users?page=1&pageSize=20&role=Staff&isActive=true&query=...` | Admin; tìm tên/email/điện thoại, lọc vai trò và trạng thái; pageSize tối đa 200 |
+| POST | `/api/admin/users` | Admin; tạo tài khoản, bắt buộc mật khẩu 8–128 ký tự và `Idempotency-Key` |
+| PUT | `/api/admin/users/{id}` | Admin; sửa đủ thông tin, vai trò/phân công/trạng thái, bắt buộc `Idempotency-Key`; không nhận mật khẩu |
 
 POST/PATCH phương tiện nhận đầy đủ trạng thái biểu mẫu để nội dung yêu cầu lặp ổn định:
 
@@ -176,7 +187,26 @@ Giữ nguyên ID bãi/khu cha khi sửa; muốn chuyển thì tạo cấu hình 
 
 Bảo trì nhận `{ "isMaintenance": true, "reason": "Sửa đèn" }`; không ghi đè trạng thái vận hành từ biểu mẫu sửa vị trí. Lịch đặt tương lai vẫn giữ để nhân viên xử lý; bảo trì không xóa thời gian đệm sau trả xe. Giá nhận `{ "pricePerHour": 6000, "reason": "Điều chỉnh phí" }`, số nguyên từ 1 đến 1.000.000.000 VND. SQL giữ phiên bản giá cũ; cột “Cập nhật lần cuối” của phiên bản cũ có thể là thời điểm bị thay thế, không phải thời điểm bắt đầu áp dụng.
 
-Bản quản trị dùng các thủ tục đã có trong `sql.md`, không yêu cầu chạy lại SQL trên máy hiện tại.
+Bản quản trị bãi/giá dùng các thủ tục đã có trong `sql.md`; tài khoản có migration riêng như phần hướng dẫn bên trên. Máy hiện tại không cần chạy lại SQL.
+
+Tạo tài khoản nhận dữ liệu sau; sửa bằng PUT gửi cùng các trường **trừ `password`**:
+
+```json
+{
+  "name": "Nhân viên mới",
+  "email": "nhanvien@example.com",
+  "phone": "0901234567",
+  "password": "MatKhauBanDau123!",
+  "role": "Staff",
+  "assignedParkingLotId": 1,
+  "isActive": true,
+  "reason": "Bổ sung nhân viên cho bãi"
+}
+```
+
+Staff phải có đúng một bãi phân công đang hoạt động; Customer/Admin gửi `assignedParkingLotId=null`. Tài khoản Staff đã thuộc bãi ngừng hoạt động vẫn được khóa với phân công cũ, nhưng không được mở lại hoặc phân công mới vào bãi đó. Chặn khóa/hạ quyền Admin hoạt động cuối cùng, kể cả khi hai yêu cầu chạy đồng thời. Chặn đổi vai trò Customer khi còn lịch CONFIRMED hoặc phiên OPEN. Khóa tài khoản giữ lịch sử và phiên gửi xe; nhân viên hợp lệ vẫn có thể thu tiền và trả xe.
+
+Mật khẩu lưu trong Users bằng ASP.NET Core Identity với salt ngẫu nhiên. Backend tạo thêm fingerprint PBKDF2 theo actor/key để yêu cầu tạo tài khoản có thể gửi lại dù hash Identity mỗi lần khác nhau. Thay mật khẩu nhưng dùng lại key cũ trả 409; không tạo user trùng. Mật khẩu/hash/fingerprint không trả ra API hoặc ghi trong audit; RequestRecord chỉ lưu hash nội dung và phản hồi không chứa mật khẩu. Chức năng đặt lại/đổi mật khẩu chưa thuộc bản quản lý tài khoản này. Không có API xóa vật lý tài khoản.
 
 ## Kiểm tra đã chạy
 
@@ -191,6 +221,8 @@ Bản quản trị dùng các thủ tục đã có trong `sql.md`, không yêu c
 - `tests/ui-sessions.cjs`: trình duyệt kiểm tra nhận xe đặt trước và walk-in, mất phản hồi khi nhận xe/thu tiền, phí thay đổi phải xác nhận lại, phiếu thu đã lưu và màn hình chỉ đọc của Customer; kiểm tra bố cục phiếu thu trên màn hình nhỏ.
 - `tests/admin_integration.py`: 128 kiểm tra HTTP/SQL về quyền Admin, kiểm tra biểu mẫu, lưu/đọc cấu hình, ngừng/kích hoạt, cha không hoạt động, cấu hình đang có giao dịch, bảo trì, audit, replay đồng thời, phiên bản giá và snapshot phí xe đã vào.
 - `tests/ui-admin.cjs`: trình duyệt thêm/sửa/ngừng/kích hoạt bãi, khu, vị trí; bật/tắt bảo trì, lỗi xung đột thật từ SQL, sửa/xem lịch sử giá, reload và mất phản hồi sau commit. Kiểm tra giao diện nhỏ và lỗi đọc dữ liệu.
+- `tests/users_integration.py`: 121 kiểm tra quyền, dữ liệu đầu vào, tạo/replay đồng thời có mật khẩu, audit, tìm kiếm/lọc/phân trang, phân công và vai trò trên token cũ, khóa/mở, giữ Admin cuối cùng, giao dịch đang mở, lịch sử và quyền database của backend.
+- `tests/ui-users.cjs`: kiểm tra tạo/sửa/phân công/khóa/mở, lọc từ server, mất phản hồi khi tạo và sửa, lưu sau reload, Admin cuối cùng, tự hạ quyền và điều hướng, lỗi đọc dữ liệu và bố cục di động.
 
 Chạy lại kiểm tra sau khi mở cả backend và frontend:
 
@@ -203,15 +235,15 @@ python tests/sessions_integration.py
 node tests/ui-sessions.cjs DUONG_DAN_NODE_MODULES_CO_PLAYWRIGHT
 ```
 
-Kiểm thử quản trị cần thay giá nên chạy bằng bộ điều phối riêng, **không chạy trực tiếp hai file kiểm thử quản trị trên database đồ án**:
+Kiểm thử quản trị có thay giá và quyền tài khoản nên chạy bằng bộ điều phối riêng, **không chạy trực tiếp các file kiểm thử quản trị trên database đồ án**:
 
 ```powershell
 dotnet build backend/ParkingLotAPI.csproj --no-restore
 python tests/run_admin_tests.py --node DUONG_DAN_NODE_EXE --node-modules DUONG_DAN_NODE_MODULES_CO_PLAYWRIGHT
 ```
 
-Bộ điều phối tự tạo `ParkingAdminVerify_<mã ngẫu nhiên>`, khởi tạo bằng mục 1 của `sql.md`, mở backend/frontend riêng ở các cổng trống, chạy cả hai bài kiểm thử rồi dừng đúng tiến trình và xóa đúng database do nó tạo. Các bài kiểm thử từ chối tên database khác mẫu này. Không cần mở ứng dụng chính; Node ưu tiên PATH rồi runtime Codex nếu có, các tham số Node có thể bỏ qua trên máy hiện tại. Log và ảnh kiểm tra nằm trong `.work/`, không đưa lên Git.
+Bộ điều phối tự tạo `ParkingAdminVerify_<mã ngẫu nhiên>`, khởi tạo bằng mục 1 của `sql.md`, chạy lại migration tài khoản để kiểm tra, mở backend/frontend riêng ở các cổng trống, chạy cả kiểm thử bãi/giá và tài khoản rồi dừng đúng tiến trình và xóa đúng database do nó tạo. Có thể chọn `--suite parking` hoặc `--suite users` khi chỉ cần kiểm tra một phần. Các bài kiểm thử từ chối tên database khác mẫu này. Không cần mở ứng dụng chính; Node ưu tiên PATH rồi runtime Codex nếu có, các tham số Node có thể bỏ qua trên máy hiện tại. Log và ảnh kiểm tra nằm trong `.work/`, không đưa lên Git.
 
 ## Phần tiếp theo
 
-Hoàn thiện quản lý tài khoản và báo cáo/dashboard bằng dữ liệu thật. Các màn hình này vẫn hiển thị cảnh báo minh họa cho đến khi có API và kiểm thử tương ứng. Ghi nhận sự cố phục vụ và sửa biển số walk-in hiện có thủ tục SQL, chưa có màn hình/API riêng; cần nối tiếp trước khi coi toàn bộ luồng ngoại lệ trong blueprint đã hoàn tất.
+Hoàn thiện báo cáo/dashboard bằng dữ liệu thật. Các màn hình này vẫn hiển thị cảnh báo minh họa cho đến khi có API và kiểm thử tương ứng. Ghi nhận sự cố phục vụ và sửa biển số walk-in hiện có thủ tục SQL, chưa có màn hình/API riêng; cần nối tiếp trước khi coi toàn bộ luồng ngoại lệ trong blueprint đã hoàn tất.
