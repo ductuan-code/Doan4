@@ -53,17 +53,15 @@ export const vehicleAPI = {
 export const parkingLotAPI = {
   getAll: () => api.get('/parking-lots'),
   getById: (id) => api.get(`/parking-lots/${id}`),
-  getAvailability: (id, vehicleType, startTime, endTime) => 
-    api.get(`/parking-lots/${id}/availability`, { 
-      params: { vehicleType, startTime, endTime } 
-    })
+  getAvailability: (id, params, signal) =>
+    api.get(`/parking-lots/${id}/availability`, { params, signal })
 }
 
 // Reservation API
 export const reservationAPI = {
-  create: (reservationData) => api.post('/reservations', reservationData),
-  getMyReservations: () => api.get('/reservations/my'),
-  cancel: (id) => api.put(`/reservations/${id}/cancel`),
+  create: (reservationData, key) => api.post('/reservations', reservationData, { headers: { 'Idempotency-Key': key } }),
+  getMyReservations: (page = 1, pageSize = 20) => api.get('/reservations/my', { params: { page, pageSize } }),
+  cancel: (id, key) => api.post(`/reservations/${id}/cancel`, null, { headers: { 'Idempotency-Key': key } }),
   getById: (id) => api.get(`/reservations/${id}`)
 }
 
