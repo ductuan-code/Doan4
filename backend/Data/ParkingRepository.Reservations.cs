@@ -51,12 +51,13 @@ public sealed partial class ParkingRepository
         ExecuteMutationAsync("dbo.usp_CancelReservation", cancellation, Number("@ActorId", actorId), Number("@ReservationId", id),
             new SqlParameter("@Key", SqlDbType.VarChar, 128) { Value = key });
 
-    public async Task<List<ReservationView>> GetReservationsAsync(int actorId, int? id, int page, int pageSize, CancellationToken cancellation)
+    public async Task<List<ReservationView>> GetReservationsAsync(int actorId, int? id, int page, int pageSize, CancellationToken cancellation, string? code = null)
     {
         await using var connection = new SqlConnection(ConnectionString);
         await connection.OpenAsync(cancellation);
         await using var command = Command(connection, "dbo.usp_ListReservations", Number("@ActorId", actorId),
-            Number("@ReservationId", id), Number("@Page", page), Number("@PageSize", pageSize));
+            Number("@ReservationId", id), Number("@Page", page), Number("@PageSize", pageSize),
+            new SqlParameter("@ReservationCode", SqlDbType.VarChar, 40) { Value = (object?)code ?? DBNull.Value });
         await using var reader = await command.ExecuteReaderAsync(cancellation);
         var rows = new List<ReservationView>();
         while (await reader.ReadAsync(cancellation))
