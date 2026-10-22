@@ -2,7 +2,7 @@
 
 ## Tiến độ ngày 22/10/2026
 
-Đã nối database SQL Server với backend ASP.NET Core và hoàn thành đăng ký, đăng nhập, phân quyền, phương tiện, tìm/đặt/hủy chỗ, nhận xe, xem phí, thu tiền và xác nhận xe ra. Khách hàng có lịch sử gửi xe và phiếu thu của mình.
+Đã nối database SQL Server với backend ASP.NET Core và hoàn thành đăng ký, đăng nhập, phân quyền, phương tiện, tìm/đặt/hủy chỗ, nhận xe, xem phí, thu tiền và xác nhận xe ra. Khách hàng có lịch sử gửi xe và phiếu thu của mình. Admin quản lý bãi, khu vực, vị trí, bảo trì và phiên bản bảng giá bằng dữ liệu thật.
 
 | Phần | Trạng thái |
 |---|---|
@@ -18,7 +18,10 @@
 | Nhận xe | Staff tra đúng mã đặt trong bãi được phân công hoặc nhập xe đến trực tiếp; chọn vị trí, đổi vị trí có lý do và đồng ý của khách |
 | Xe ra và thu tiền | Phí từ server theo đơn giá lúc vào; đối chiếu số tiền, ghi Payment và đóng phiên trong cùng transaction; chống thu trùng |
 | Lịch sử gửi xe / phiếu thu | Customer chỉ xem lượt của mình; Staff xem trong bãi; tìm theo biển số/mã phiên, phân trang và xem phiếu thu |
-| Quản trị, dashboard và báo cáo | Có giao diện nguyên mẫu và xử lý SQL; **chưa nối API nghiệp vụ** |
+| Quản trị bãi / khu / vị trí | Thêm, sửa, ngừng hoạt động và kích hoạt lại; bắt buộc lý do, audit và mã yêu cầu; giữ lịch sử |
+| Bảo trì vị trí | Admin bật/tắt bảo trì; chặn khi có xe; giữ lịch đặt tương lai và khoảng đệm sau trả xe |
+| Bảng giá | Sửa giá theo loại xe, tạo phiên bản mới, xem lịch sử có phân trang; xe đã vào giữ đơn giá cũ |
+| Tài khoản, dashboard và báo cáo | Có giao diện nguyên mẫu và xử lý SQL; **chưa nối API nghiệp vụ** |
 
 Những trang chưa tích hợp hiển thị thông báo dữ liệu/thao tác minh họa. Dashboard chưa phản ánh số liệu vận hành thật. Không sửa báo cáo trong giai đoạn tiếp tục phát triển này.
 
@@ -123,6 +126,15 @@ Danh sách khả dụng là kết quả tại thời điểm tìm, không giữ 
 | GET | `/api/sessions/{id}` | Customer chủ lượt / Staff đúng bãi; gồm dữ liệu phiếu thu nếu đã trả xe |
 | GET | `/api/sessions/{id}/fee` | Customer chủ lượt / Staff đúng bãi; phí tạm tính hoặc phí đã chốt |
 | POST | `/api/sessions/{id}/checkout` | Staff đúng bãi; bắt buộc `Idempotency-Key` |
+| GET / POST | `/api/admin/parking-lots` | Admin; đọc cả bãi đã ngừng / tạo bãi |
+| PUT | `/api/admin/parking-lots/{id}` | Admin; sửa tên, địa chỉ và trạng thái hoạt động |
+| GET | `/api/admin/parking-lots/{id}/zones` | Admin; đọc cả khu đã ngừng trong bãi |
+| POST / PUT | `/api/admin/zones` / `/api/admin/zones/{id}` | Admin; tạo / sửa khu vực |
+| GET | `/api/admin/zones/{id}/slots` | Admin; đọc vị trí, trạng thái vận hành và khoảng đệm |
+| POST / PUT | `/api/admin/slots` / `/api/admin/slots/{id}` | Admin; tạo / sửa vị trí |
+| PUT | `/api/admin/slots/{id}/maintenance` | Admin; bật/tắt bảo trì, bắt buộc lý do |
+| GET | `/api/admin/pricing?includeHistory=false&page=1&pageSize=20` | Admin; giá hiện hành hoặc toàn bộ phiên bản; pageSize tối đa 200 |
+| PUT | `/api/admin/pricing/{vehicleType}` | Admin; `MOTORBIKE` hoặc `CAR`, tạo phiên bản giá mới |
 
 POST/PATCH phương tiện nhận đầy đủ trạng thái biểu mẫu để nội dung yêu cầu lặp ổn định:
 
@@ -144,6 +156,28 @@ Nhận xe đã đặt: `{ "slotId": 1, "reservationCode": "RS-..." }`; biển s�
 
 Xe ra nhận `{ "paymentMethod": "CASH", "confirmedAmount": 5000 }` (`CASH`/`SIMULATED`, số nguyên VND). Số tiền cần khớp phí server ở thời điểm xác nhận. Payment, Session, Reservation, vị trí, AuditLog và RequestRecord commit/rollback cùng nhau. Khách không có API tự đánh dấu đã trả tiền.
 
+Các thao tác ghi quản trị đều bắt buộc `Idempotency-Key` và `reason` (tối đa 1.000 ký tự), ghi audit trong transaction. Dùng cùng key/cùng nội dung khi thử lại yêu cầu chưa rõ kết quả. Cùng key nhưng đổi nội dung trả 409. Tạo cấu hình trả 201, sửa trả 200; gửi lại không tạo bản ghi hoặc phiên bản giá trùng.
+
+Ví dụ nội dung tạo/sửa quản trị (PUT gửi đủ biểu mẫu, không gửi các trường chỉ đọc):
+
+```json
+{ "name": "Bãi mới", "address": "Địa chỉ bãi", "isActive": true, "reason": "Mở thêm bãi" }
+```
+
+```json
+{ "parkingLotId": 1, "name": "Khu ô tô", "floorLabel": "Tầng 1", "vehicleType": "CAR", "isActive": true, "reason": "Thêm khu vực" }
+```
+
+```json
+{ "zoneId": 1, "code": "A_01", "acceptsReservations": true, "isActive": true, "reason": "Thêm vị trí" }
+```
+
+Giữ nguyên ID bãi/khu cha khi sửa; muốn chuyển thì tạo cấu hình mới. Ngừng hoạt động thay cho xóa; hệ thống chặn ngừng bãi/khu/vị trí hoặc đổi loại xe/nhóm vị trí khi còn lịch `CONFIRMED` hoặc phiên `OPEN` liên quan. Bãi/khu cha phải hoạt động khi sửa cấu hình con. Vị trí nhận mã ASCII tối đa 30 ký tự chữ, số, `_`, `-`.
+
+Bảo trì nhận `{ "isMaintenance": true, "reason": "Sửa đèn" }`; không ghi đè trạng thái vận hành từ biểu mẫu sửa vị trí. Lịch đặt tương lai vẫn giữ để nhân viên xử lý; bảo trì không xóa thời gian đệm sau trả xe. Giá nhận `{ "pricePerHour": 6000, "reason": "Điều chỉnh phí" }`, số nguyên từ 1 đến 1.000.000.000 VND. SQL giữ phiên bản giá cũ; cột “Cập nhật lần cuối” của phiên bản cũ có thể là thời điểm bị thay thế, không phải thời điểm bắt đầu áp dụng.
+
+Bản quản trị dùng các thủ tục đã có trong `sql.md`, không yêu cầu chạy lại SQL trên máy hiện tại.
+
 ## Kiểm tra đã chạy
 
 - `dotnet build backend/ParkingLotAPI.csproj --no-restore`: thành công, 0 lỗi/cảnh báo.
@@ -155,6 +189,8 @@ Xe ra nhận `{ "paymentMethod": "CASH", "confirmedAmount": 5000 }` (`CASH`/`SIM
 - `tests/ui-reservations.cjs`: kiểm tra trình duyệt chọn xe đang hoạt động, tìm/đặt thật, xung đột 409, giả lập mất phản hồi sau khi SQL commit rồi gửi lại cùng key, giờ Việt Nam trong trình duyệt UTC, reload lịch sử/hủy và hiển thị lỗi kết nối thay cho dữ liệu mẫu.
 - `tests/sessions_integration.py`: 81 kiểm tra về phân quyền/chủ lượt/bãi, đổi vị trí và audit, check-in/checkout đồng thời, replay, số tiền sai, phí server, một thanh toán duy nhất, khoảng đệm, walk-in và phiếu thu của Customer.
 - `tests/ui-sessions.cjs`: trình duyệt kiểm tra nhận xe đặt trước và walk-in, mất phản hồi khi nhận xe/thu tiền, phí thay đổi phải xác nhận lại, phiếu thu đã lưu và màn hình chỉ đọc của Customer; kiểm tra bố cục phiếu thu trên màn hình nhỏ.
+- `tests/admin_integration.py`: 128 kiểm tra HTTP/SQL về quyền Admin, kiểm tra biểu mẫu, lưu/đọc cấu hình, ngừng/kích hoạt, cha không hoạt động, cấu hình đang có giao dịch, bảo trì, audit, replay đồng thời, phiên bản giá và snapshot phí xe đã vào.
+- `tests/ui-admin.cjs`: trình duyệt thêm/sửa/ngừng/kích hoạt bãi, khu, vị trí; bật/tắt bảo trì, lỗi xung đột thật từ SQL, sửa/xem lịch sử giá, reload và mất phản hồi sau commit. Kiểm tra giao diện nhỏ và lỗi đọc dữ liệu.
 
 Chạy lại kiểm tra sau khi mở cả backend và frontend:
 
@@ -167,6 +203,15 @@ python tests/sessions_integration.py
 node tests/ui-sessions.cjs DUONG_DAN_NODE_MODULES_CO_PLAYWRIGHT
 ```
 
+Kiểm thử quản trị cần thay giá nên chạy bằng bộ điều phối riêng, **không chạy trực tiếp hai file kiểm thử quản trị trên database đồ án**:
+
+```powershell
+dotnet build backend/ParkingLotAPI.csproj --no-restore
+python tests/run_admin_tests.py --node DUONG_DAN_NODE_EXE --node-modules DUONG_DAN_NODE_MODULES_CO_PLAYWRIGHT
+```
+
+Bộ điều phối tự tạo `ParkingAdminVerify_<mã ngẫu nhiên>`, khởi tạo bằng mục 1 của `sql.md`, mở backend/frontend riêng ở các cổng trống, chạy cả hai bài kiểm thử rồi dừng đúng tiến trình và xóa đúng database do nó tạo. Các bài kiểm thử từ chối tên database khác mẫu này. Không cần mở ứng dụng chính; Node ưu tiên PATH rồi runtime Codex nếu có, các tham số Node có thể bỏ qua trên máy hiện tại. Log và ảnh kiểm tra nằm trong `.work/`, không đưa lên Git.
+
 ## Phần tiếp theo
 
-Hoàn thiện quản trị bãi/khu/vị trí, giá, tài khoản và báo cáo/dashboard bằng dữ liệu thật. Các màn hình này vẫn hiển thị cảnh báo minh họa cho đến khi có API và kiểm thử tương ứng. Ghi nhận sự cố phục vụ và sửa biển số walk-in hiện có thủ tục SQL, chưa có màn hình/API riêng; cần nối tiếp trước khi coi toàn bộ luồng ngoại lệ trong blueprint đã hoàn tất.
+Hoàn thiện quản lý tài khoản và báo cáo/dashboard bằng dữ liệu thật. Các màn hình này vẫn hiển thị cảnh báo minh họa cho đến khi có API và kiểm thử tương ứng. Ghi nhận sự cố phục vụ và sửa biển số walk-in hiện có thủ tục SQL, chưa có màn hình/API riêng; cần nối tiếp trước khi coi toàn bộ luồng ngoại lệ trong blueprint đã hoàn tất.
