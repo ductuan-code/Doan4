@@ -76,6 +76,8 @@ export const sessionAPI = {
   checkOut: (id, data, key) => api.post(`/sessions/${id}/checkout`, data, { headers: { 'Idempotency-Key': key } })
 }
 
+export const dashboardAPI = { get: () => api.get('/dashboard') }
+
 // Admin APIs
 export const adminAPI = {
   // Parking Lots
