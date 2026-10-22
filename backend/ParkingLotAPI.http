@@ -22,3 +22,7 @@ Authorization: Bearer {{token}}
 ###
 GET {{ParkingLotAPI_HostAddress}}/api/reservations/my?page=1&pageSize=20
 Authorization: Bearer {{token}}
+
+### Customer xem lượt gửi/phiếu thu của mình. Staff xem các lượt thuộc bãi được phân công.
+GET {{ParkingLotAPI_HostAddress}}/api/sessions?page=1&pageSize=20
+Authorization: Bearer {{token}}

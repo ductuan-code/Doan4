@@ -2,7 +2,7 @@
 
 ## Tiến độ ngày 22/10/2026
 
-Đã nối database SQL Server với backend ASP.NET Core và hoàn thành đăng ký, đăng nhập, phân quyền, quản lý phương tiện, tìm chỗ trống, đặt chỗ và xem/hủy lịch trên giao diện.
+Đã nối database SQL Server với backend ASP.NET Core và hoàn thành đăng ký, đăng nhập, phân quyền, phương tiện, tìm/đặt/hủy chỗ, nhận xe, xem phí, thu tiền và xác nhận xe ra. Khách hàng có lịch sử gửi xe và phiếu thu của mình.
 
 | Phần | Trạng thái |
 |---|---|
@@ -15,13 +15,22 @@
 | Tìm chỗ | Chọn xe của mình, bãi và giờ; chỉ trả vị trí phù hợp và cập nhật mỗi 30 giây |
 | Đặt / hủy / lịch sử | Lưu thật, chống trùng khi đặt đồng thời; retry giữ cùng key; lịch sử có phân trang, chỉ dữ liệu của mình |
 | Hết hạn đặt chỗ | BackgroundService chạy lúc khởi động và mỗi 60 giây, ghi trạng thái và audit qua SQL |
-| Check-in/out, quản trị và báo cáo | Có giao diện nguyên mẫu và xử lý SQL; **chưa nối API nghiệp vụ** |
+| Nhận xe | Staff tra đúng mã đặt trong bãi được phân công hoặc nhập xe đến trực tiếp; chọn vị trí, đổi vị trí có lý do và đồng ý của khách |
+| Xe ra và thu tiền | Phí từ server theo đơn giá lúc vào; đối chiếu số tiền, ghi Payment và đóng phiên trong cùng transaction; chống thu trùng |
+| Lịch sử gửi xe / phiếu thu | Customer chỉ xem lượt của mình; Staff xem trong bãi; tìm theo biển số/mã phiên, phân trang và xem phiếu thu |
+| Quản trị, dashboard và báo cáo | Có giao diện nguyên mẫu và xử lý SQL; **chưa nối API nghiệp vụ** |
 
 Những trang chưa tích hợp hiển thị thông báo dữ liệu/thao tác minh họa. Dashboard chưa phản ánh số liệu vận hành thật. Không sửa báo cáo trong giai đoạn tiếp tục phát triển này.
 
 ## Chạy trên máy hiện tại
 
 Database đã được tạo tại server **`localhost`**, database **`ParkingLotOnline`**. Sau khi cài lại Windows, instance đang chạy là instance mặc định, không phải `localhost\SQLEXPRESS` như trước. Không cần chạy lại script khởi tạo nếu database hiện đã có.
+
+Bản cập nhật nhận/trả xe bổ sung tham số lọc mã cho hai thủ tục tra cứu. **Máy hiện tại đã được cập nhật**, không cần chạy lại SQL. Với database cũ trên máy khác, chạy `scripts/sql/20261022_staff_queries.sql` (UTF-8) hoặc lệnh sau từ thư mục dự án; script không đổi bảng/xóa dữ liệu. Khởi tạo mới bằng mục 1 của `sql.md` đã có sẵn thay đổi này.
+
+```powershell
+sqlcmd -S localhost -d ParkingLotOnline -E -C -b -f 65001 -i scripts/sql/20261022_staff_queries.sql
+```
 
 Mở hai cửa sổ PowerShell tại `C:\Code\doan4`:
 
@@ -71,6 +80,15 @@ npm run dev
 
 Danh sách khả dụng là kết quả tại thời điểm tìm, không giữ chỗ trong lúc chọn. Nếu vị trí/xe vừa có lịch khác, API trả 409 và giao diện tải lại để chọn tiếp. Sau khi quá giờ bắt đầu 15 phút mà chưa check-in, lịch có hiệu lực hết hạn; tác vụ nền lưu trạng thái `EXPIRED`. Chỗ dành cho walk-in không được hiển thị cho khách đặt trước.
 
+### Thử luồng xe vào, thu tiền và xe ra
+
+1. Customer đặt chỗ với giờ bắt đầu sau khoảng 5 phút, copy mã `RS-...` trong lịch sử.
+2. Đăng nhập Staff đúng bãi → **Check-in xe** → tra mã → đối chiếu xe thực tế và vị trí → **Xác nhận xe vào**. Chọn vị trí thay thế phải có lý do và khách đồng ý. Với xe chưa đặt, chọn **Khách đến trực tiếp**, nhập biển số/loại xe và chọn vị trí nhóm walk-in. Không tự liên kết lượt vãng lai với tài khoản chỉ dựa vào biển số.
+3. Mở **Check-out xe** → tìm theo biển số hoặc mã `PS-...` → **Xem phí và xe ra**. Server tính phí, làm tròn lên từng giờ, tối thiểu một giờ. Đơn giá đã chụp lúc nhận xe.
+4. Chọn `Tiền mặt` hoặc `Thanh toán mô phỏng`, kiểm tra thực tế đã nhận đủ tiền/xe sẵn sàng ra, đánh dấu xác nhận → **Xác nhận thu tiền và xe ra**. Đây là thanh toán tại quầy, chưa kết nối ngân hàng.
+5. Nếu phí đổi trước khi xác nhận, API trả 409; giao diện tải lại và bỏ dấu xác nhận để nhân viên đối chiếu lại, không tự thu theo số tiền mới. Mất phản hồi thì thử lại giữ nguyên nội dung/mã yêu cầu, không thu thêm lần nữa.
+6. Xem phiếu thu ngay trong hộp thoại. Staff chọn trạng thái **Đã kết thúc** để tra lại; Customer mở **Lịch sử gửi xe** để xem phiếu thu của mình. Slot hết xe vẫn chờ khoảng đệm 15 phút trước khi nhận lượt tiếp theo.
+
 ## Cấu hình
 
 - `backend/appsettings.json`: kết nối Windows Authentication tới `localhost`, database `ParkingLotOnline`; không có mật khẩu SQL hay khóa JWT mặc định trong mã nguồn.
@@ -98,6 +116,13 @@ Danh sách khả dụng là kết quả tại thời điểm tìm, không giữ 
 | GET | `/api/reservations/my?page=1&pageSize=20` | Customer; lịch của mình; pageSize tối đa 200 |
 | GET | `/api/reservations/{id}` | Customer chủ lịch; ngoài phạm vi trả 404 |
 | POST | `/api/reservations/{id}/cancel` | Customer chủ lịch; bắt buộc `Idempotency-Key` |
+| GET | `/api/staff/operations` | Staff; vị trí trong bãi được phân công, không nhận lotId từ client |
+| GET | `/api/staff/reservations/lookup?code=RS-...` | Staff; mã đặt đúng bãi; ngoài phạm vi trả 404 |
+| POST | `/api/sessions/checkin` | Staff đúng bãi; bắt buộc `Idempotency-Key` |
+| GET | `/api/sessions?status=OPEN&query=...&page=1&pageSize=20` | Customer chủ lượt / Staff đúng bãi; query là biển số hoặc mã phiên chính xác |
+| GET | `/api/sessions/{id}` | Customer chủ lượt / Staff đúng bãi; gồm dữ liệu phiếu thu nếu đã trả xe |
+| GET | `/api/sessions/{id}/fee` | Customer chủ lượt / Staff đúng bãi; phí tạm tính hoặc phí đã chốt |
+| POST | `/api/sessions/{id}/checkout` | Staff đúng bãi; bắt buộc `Idempotency-Key` |
 
 POST/PATCH phương tiện nhận đầy đủ trạng thái biểu mẫu để nội dung yêu cầu lặp ổn định:
 
@@ -115,6 +140,10 @@ Phản hồi lỗi có `code`, `message`, `traceId`; lỗi biểu mẫu có thê
 
 Đặt chỗ nhận `vehicleId`, `slotId`, `startTime`, `endTime`. Hai trường thời gian cần ISO 8601 có giây và múi giờ, ví dụ `2026-10-23T09:00:00+07:00` hoặc `2026-10-23T02:00:00Z`. Không nhận `userId`, giá, trạng thái do client tự gửi. Đặt thành công trả 201 gồm `id`, `reservationCode`, `status`; hủy trả 200. Gửi lại cùng mã yêu cầu/cùng nội dung trả kết quả cũ và header `Idempotency-Replayed: true`; cùng mã nhưng đổi nội dung trả 409. Lịch sử trả thời gian có `Z`, trạng thái có hiệu lực và `canCancel`.
 
+Nhận xe đã đặt: `{ "slotId": 1, "reservationCode": "RS-..." }`; biển số/loại xe lấy từ snapshot SQL, không được ghi đè. Đổi vị trí thêm `replacementReason` và `customerAgreed=true`. Nhận xe trực tiếp: `{ "slotId": 5, "plateNumber": "59-C1 112.23", "vehicleType": "MOTORBIKE" }`. API không nhận `customerId`, `vehicleId`, giờ vào hoặc đơn giá tùy ý.
+
+Xe ra nhận `{ "paymentMethod": "CASH", "confirmedAmount": 5000 }` (`CASH`/`SIMULATED`, số nguyên VND). Số tiền cần khớp phí server ở thời điểm xác nhận. Payment, Session, Reservation, vị trí, AuditLog và RequestRecord commit/rollback cùng nhau. Khách không có API tự đánh dấu đã trả tiền.
+
 ## Kiểm tra đã chạy
 
 - `dotnet build backend/ParkingLotAPI.csproj --no-restore`: thành công, 0 lỗi/cảnh báo.
@@ -124,6 +153,8 @@ Phản hồi lỗi có `code`, `message`, `traceId`; lỗi biểu mẫu có thê
 - Các kiểm tra tạo tài khoản riêng có tên ngẫu nhiên và dọn đúng dữ liệu của các tài khoản đó. Không xóa dữ liệu demo hoặc tài khoản người dùng khác.
 - `tests/reservations_integration.py`: kiểm tra HTTP + SQL về thời gian/múi giờ, chủ xe/lịch, đặt đồng thời cùng chỗ, trùng lịch xe, replay đồng thời, hủy, phân trang, trạng thái hết hạn và audit của tác vụ nền thật. Bài kiểm tra đợi tối đa 70 giây cho chu kỳ hết hạn mặc định.
 - `tests/ui-reservations.cjs`: kiểm tra trình duyệt chọn xe đang hoạt động, tìm/đặt thật, xung đột 409, giả lập mất phản hồi sau khi SQL commit rồi gửi lại cùng key, giờ Việt Nam trong trình duyệt UTC, reload lịch sử/hủy và hiển thị lỗi kết nối thay cho dữ liệu mẫu.
+- `tests/sessions_integration.py`: 81 kiểm tra về phân quyền/chủ lượt/bãi, đổi vị trí và audit, check-in/checkout đồng thời, replay, số tiền sai, phí server, một thanh toán duy nhất, khoảng đệm, walk-in và phiếu thu của Customer.
+- `tests/ui-sessions.cjs`: trình duyệt kiểm tra nhận xe đặt trước và walk-in, mất phản hồi khi nhận xe/thu tiền, phí thay đổi phải xác nhận lại, phiếu thu đã lưu và màn hình chỉ đọc của Customer; kiểm tra bố cục phiếu thu trên màn hình nhỏ.
 
 Chạy lại kiểm tra sau khi mở cả backend và frontend:
 
@@ -132,8 +163,10 @@ python tests/auth_vehicles_integration.py
 node tests/ui-auth-vehicles.cjs DUONG_DAN_NODE_MODULES_CO_PLAYWRIGHT
 python tests/reservations_integration.py
 node tests/ui-reservations.cjs DUONG_DAN_NODE_MODULES_CO_PLAYWRIGHT
+python tests/sessions_integration.py
+node tests/ui-sessions.cjs DUONG_DAN_NODE_MODULES_CO_PLAYWRIGHT
 ```
 
 ## Phần tiếp theo
 
-Nối luồng nhân viên nhận xe theo mã đặt chỗ hoặc walk-in, xem phí, thu tiền và xác nhận xe ra. Sau đó hoàn thiện quản trị bãi/khu/vị trí, giá, tài khoản và báo cáo/dashboard bằng dữ liệu thật. Các màn hình này vẫn hiển thị cảnh báo minh họa cho đến khi có API và kiểm thử tương ứng.
+Hoàn thiện quản trị bãi/khu/vị trí, giá, tài khoản và báo cáo/dashboard bằng dữ liệu thật. Các màn hình này vẫn hiển thị cảnh báo minh họa cho đến khi có API và kiểm thử tương ứng. Ghi nhận sự cố phục vụ và sửa biển số walk-in hiện có thủ tục SQL, chưa có màn hình/API riêng; cần nối tiếp trước khi coi toàn bộ luồng ngoại lệ trong blueprint đã hoàn tất.
