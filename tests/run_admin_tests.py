@@ -20,6 +20,7 @@ RUNTIME = Path.home() / '.cache/codex-runtimes/codex-primary-runtime/dependencie
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--node', default=shutil.which('node') or str(RUNTIME / 'bin/node.exe'))
 parser.add_argument('--node-modules', default=str(RUNTIME / 'node_modules'))
+parser.add_argument('--suite', choices=['parking', 'users', 'all'], default='all')
 args = parser.parse_args()
 database = 'ParkingAdminVerify_' + uuid.uuid4().hex[:12]
 assert re.fullmatch(r'ParkingAdminVerify_[a-f0-9]{12}', database)
@@ -76,6 +77,11 @@ try:
     init.write_text(script, encoding='utf-8')
     with (work / 'init.log').open('w', encoding='utf-8') as log:
         subprocess.run([sqlcmd, '-S', 'localhost', '-E', '-C', '-b', '-f', '65001', '-i', str(init)], stdout=log, stderr=subprocess.STDOUT, check=True, timeout=120, **hidden)
+    # Kiểm tra migration chạy lặp được và khớp với script khởi tạo mới.
+    migration = work / 'admin_users.sql'
+    migration.write_text((ROOT / 'scripts/sql/20261022_admin_users.sql').read_text(encoding='utf-8').replace('ParkingLotOnline', database), encoding='utf-8')
+    with (work / 'migration.log').open('w', encoding='utf-8') as log:
+        subprocess.run([sqlcmd, '-S', 'localhost', '-E', '-C', '-b', '-f', '65001', '-i', str(migration)], stdout=log, stderr=subprocess.STDOUT, check=True, timeout=30, **hidden)
     env = os.environ.copy()
     api_port, ui_port = port(), port()
     while ui_port == api_port: ui_port = port()
@@ -93,8 +99,12 @@ try:
     frontend = launch([args.node, 'node_modules/vite/bin/vite.js', '--port', str(ui_port), '--strictPort'], ROOT / 'frontend', env, 'frontend')
     ready(ui, frontend)
     print(f'Isolated database: {database}', flush=True)
-    run_test([sys.executable, str(ROOT / 'tests/admin_integration.py')], env, 'api-tests', 120)
-    run_test([args.node, str(ROOT / 'tests/ui-admin.cjs'), args.node_modules], env, 'browser-tests', 180)
+    if args.suite in ['parking', 'all']:
+        run_test([sys.executable, str(ROOT / 'tests/admin_integration.py')], env, 'api-tests', 120)
+        run_test([args.node, str(ROOT / 'tests/ui-admin.cjs'), args.node_modules], env, 'browser-tests', 180)
+    if args.suite in ['users', 'all']:
+        run_test([sys.executable, str(ROOT / 'tests/users_integration.py')], env, 'user-api-tests', 120)
+        run_test([args.node, str(ROOT / 'tests/ui-users.cjs'), args.node_modules], env, 'user-browser-tests', 180)
     print('PASS admin API + browser. Main database was not modified.', flush=True)
 finally:
     for process in reversed(processes):
