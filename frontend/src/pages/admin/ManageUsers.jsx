@@ -1,165 +1,150 @@
-import { useState } from 'react'
-import Layout from '../../components/Layout'
+import { useEffect, useState } from 'react'
 import {
-  Box, Typography, Card, Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, Button, Dialog, DialogTitle, DialogContent,
-  DialogActions, TextField, Select, MenuItem, FormControl, InputLabel,
-  IconButton, Tooltip, Alert, Chip, Avatar
+  Alert, Box, Button, Card, Checkbox, Chip, Dialog, DialogActions, DialogContent,
+  DialogTitle, FormControlLabel, MenuItem, Stack, Table, TableBody, TableCell,
+  TableContainer, TableHead, TableRow, TextField, Typography
 } from '@mui/material'
-import AddIcon from '@mui/icons-material/Add'
-import LockIcon from '@mui/icons-material/Lock'
-import LockOpenIcon from '@mui/icons-material/LockOpen'
+import Layout from '../../components/Layout'
+import { useAuth } from '../../context/AuthContext'
+import { adminAPI, getErrorMessage } from '../../services/api'
+import { formatParkingTime } from '../../utils/reservationTime'
+import useAdminMutation from './useAdminMutation'
 
-const mockUsers = [
-  { id: 1, name: 'Nguyễn Văn A', email: 'customer@test.com', phone: '0901234567', role: 'Customer', active: true },
-  { id: 2, name: 'Trần Thị B',   email: 'staff@test.com',    phone: '0912345678', role: 'Staff',    active: true },
-  { id: 3, name: 'Admin System', email: 'admin@test.com',    phone: '0923456789', role: 'Admin',    active: true },
-  { id: 4, name: 'Lê Văn C',     email: 'user2@test.com',    phone: '0934567890', role: 'Customer', active: false },
-]
-
-const roleConfig = {
-  Admin:    { bg: '#faf5ff', color: '#7c3aed', label: 'Quản trị viên' },
-  Staff:    { bg: '#f0fdf4', color: '#059669', label: 'Nhân viên' },
-  Customer: { bg: '#eff6ff', color: '#2563eb', label: 'Khách hàng' },
+const roles = { Customer: 'Khách hàng', Staff: 'Nhân viên', Admin: 'Quản trị viên' }
+// Không giữ bản sao mật khẩu trong map retry. Đây chỉ là digest cục bộ để chọn key,
+// server vẫn xác thực nội dung bằng fingerprint PBKDF2 và hash Identity riêng.
+const fingerprintOf = async data => {
+  const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(data)))
+  return Array.from(new Uint8Array(bytes), b => b.toString(16).padStart(2, '0')).join('')
 }
 
-function ManageUsers() {
-  const [users, setUsers] = useState(mockUsers)
-  const [openDialog, setOpenDialog] = useState(false)
-  const [formData, setFormData] = useState({ name: '', email: '', phone: '', password: '', role: 'Staff' })
+export default function ManageUsers() {
+  const { user: currentUser, refreshUser } = useAuth()
+  const [users, setUsers] = useState([])
+  const [lots, setLots] = useState([])
+  const [filters, setFilters] = useState({ role: 'all', active: 'all', query: '' })
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [filter, setFilter] = useState('all')
-
-  const handleSave = () => {
-    if (!formData.name || !formData.email || !formData.password) { setError('Vui lòng điền đầy đủ thông tin'); return }
-    setUsers([...users, { id: Date.now(), ...formData, active: true }])
-    setOpenDialog(false)
-    setFormData({ name: '', email: '', phone: '', password: '', role: 'Staff' })
+  const [revision, setRevision] = useState(0)
+  const [notice, setNotice] = useState('')
+  const [dialog, setDialog] = useState(null)
+  const [form, setForm] = useState({})
+  const mutation = useAdminMutation({ fingerprintOf })
+  useEffect(() => {
+    let current = true
+    setLoading(true)
+    setError('')
+    setUsers([])
+    Promise.all([
+      adminAPI.getUsers({ page, pageSize: 20, role: filters.role === 'all' ? undefined : filters.role,
+        query: filters.query || undefined, isActive: filters.active === 'all' ? undefined : filters.active === 'true' }),
+      adminAPI.getParkingLots()
+    ]).then(([list, parking]) => {
+      if (current) { setUsers(list.data); setLots(parking.data) }
+    }).catch(e => { if (current) setError(getErrorMessage(e)) })
+      .finally(() => { if (current) setLoading(false) })
+    return () => { current = false }
+  }, [page, filters, revision])
+  const filter = (key, value) => { setFilters(f => ({ ...f, [key]: value })); setPage(1) }
+  const field = (key, value) => setForm(f => ({ ...f, [key]: value }))
+  const close = () => { if (!mutation.saving) { setDialog(null); setForm({}) } }
+  const open = (row = null, toggle = false) => {
+    mutation.setError('')
+    setNotice('')
+    setDialog({ id: row?.id })
+    setForm({ name: row?.name ?? '', email: row?.email ?? '', phone: row?.phone ?? '',
+      role: row?.role ?? 'Staff', assignedParkingLotId: row?.assignedParkingLotId ?? '',
+      isActive: toggle ? !row.isActive : row?.isActive ?? true, password: '', reason: '' })
   }
-
-  const toggleStatus = (id) => setUsers(users.map(u => u.id === id ? { ...u, active: !u.active } : u))
-
-  const filtered = filter === 'all' ? users : users.filter(u => u.role === filter)
-
-  return (
-    <Layout>
-      <Box>
-        <Box sx={{
-          background: 'linear-gradient(135deg, #7c3aed, #2563eb)',
-          borderRadius: 3, p: 3, mb: 3, color: 'white',
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-        }}>
-          <Box>
-            <Typography variant="h5" fontWeight={700}>Quản lý Tài Khoản</Typography>
-            <Typography variant="body2" sx={{ opacity: 0.85 }}>Người dùng và nhân viên hệ thống</Typography>
-          </Box>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => { setError(''); setOpenDialog(true) }}
-            sx={{ bgcolor: 'white', color: '#7c3aed', '&:hover': { bgcolor: '#faf5ff' }, fontWeight: 700 }}>
-            Thêm nhân viên
-          </Button>
-        </Box>
-
-        {/* Filter */}
-        <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-          {[
-            { key: 'all', label: 'Tất cả' },
-            { key: 'Customer', label: 'Khách hàng' },
-            { key: 'Staff', label: 'Nhân viên' },
-            { key: 'Admin', label: 'Admin' },
-          ].map(f => (
-            <Button key={f.key} size="small"
-              variant={filter === f.key ? 'contained' : 'outlined'}
-              onClick={() => setFilter(f.key)}
-              sx={{ borderRadius: 5, px: 2,
-                ...(filter === f.key ? {} : { borderColor: '#e2e8f0', color: 'text.secondary' })
-              }}
-            >
-              {f.label}
-            </Button>
-          ))}
-        </Box>
-
-        <Card sx={{ borderRadius: 3 }}>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow sx={{ bgcolor: '#f8faff' }}>
-                  {['', 'Họ tên', 'Email', 'SĐT', 'Vai trò', 'Trạng thái', 'Thao tác'].map(h => (
-                    <TableCell key={h} sx={{ fontWeight: 700, color: '#7c3aed' }}>{h}</TableCell>
-                  ))}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {filtered.map((user) => {
-                  const rc = roleConfig[user.role]
-                  return (
-                    <TableRow key={user.id} hover sx={{ '&:hover': { bgcolor: '#f8faff' } }}>
-                      <TableCell>
-                        <Avatar sx={{ bgcolor: rc.bg, color: rc.color, width: 36, height: 36, fontWeight: 700, fontSize: 14 }}>
-                          {user.name.charAt(0)}
-                        </Avatar>
-                      </TableCell>
-                      <TableCell><Typography fontWeight={600}>{user.name}</Typography></TableCell>
-                      <TableCell><Typography variant="body2" color="text.secondary">{user.email}</Typography></TableCell>
-                      <TableCell>{user.phone}</TableCell>
-                      <TableCell>
-                        <Chip label={rc.label} size="small" sx={{ bgcolor: rc.bg, color: rc.color, fontWeight: 600 }} />
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={user.active ? 'Hoạt động' : 'Bị khóa'} size="small"
-                          sx={{
-                            bgcolor: user.active ? '#f0fdf4' : '#fff1f2',
-                            color: user.active ? '#059669' : '#dc2626',
-                            fontWeight: 600
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Tooltip title={user.active ? 'Khóa tài khoản' : 'Mở khóa'}>
-                          <IconButton
-                            onClick={() => toggleStatus(user.id)}
-                            sx={{
-                              color: user.active ? '#dc2626' : '#059669',
-                              '&:hover': { bgcolor: user.active ? '#fff1f2' : '#f0fdf4' }
-                            }}
-                          >
-                            {user.active ? <LockIcon fontSize="small" /> : <LockOpenIcon fontSize="small" />}
-                          </IconButton>
-                        </Tooltip>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Card>
-
-        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
-          <DialogTitle sx={{ fontWeight: 700 }}>Thêm tài khoản nhân viên</DialogTitle>
-          <DialogContent>
-            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-            <TextField label="Họ tên" fullWidth value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} margin="normal" required />
-            <TextField label="Email" type="email" fullWidth value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} margin="normal" required />
-            <TextField label="Số điện thoại" fullWidth value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} margin="normal" />
-            <TextField label="Mật khẩu tạm" type="password" fullWidth value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} margin="normal" required />
-            <FormControl fullWidth margin="normal">
-              <InputLabel>Vai trò</InputLabel>
-              <Select value={formData.role} label="Vai trò" onChange={(e) => setFormData({ ...formData, role: e.target.value })}>
-                <MenuItem value="Staff">Nhân viên</MenuItem>
-                <MenuItem value="Admin">Quản trị viên</MenuItem>
-              </Select>
-            </FormControl>
-          </DialogContent>
-          <DialogActions sx={{ p: 2.5, gap: 1 }}>
-            <Button onClick={() => setOpenDialog(false)} variant="outlined">Hủy</Button>
-            <Button variant="contained" onClick={handleSave}>Thêm mới</Button>
-          </DialogActions>
-        </Dialog>
+  const submit = async event => {
+    event.preventDefault()
+    if (!form.name.trim() || !form.reason.trim() || (form.role === 'Staff' && !form.assignedParkingLotId)) {
+      mutation.setError('Vui lòng nhập họ tên, lý do và bãi phân công cho nhân viên.')
+      return
+    }
+    const body = { name: form.name.trim(), email: form.email.trim().toLowerCase(), phone: form.phone.trim() || null,
+      role: form.role, isActive: form.isActive, assignedParkingLotId: form.role === 'Staff' ? form.assignedParkingLotId : null,
+      reason: form.reason.trim(), ...(!dialog.id ? { password: form.password } : {}) }
+    const id = dialog.id
+    if (await mutation.save(`user:${id ?? 'new'}`, body, key => id ? adminAPI.updateUser(id, body, key) : adminAPI.createUser(body, key))) {
+      setDialog(null)
+      setForm({})
+      setNotice('Đã lưu tài khoản. Quyền và trạng thái mới có hiệu lực từ yêu cầu tiếp theo.')
+      if (id === currentUser.id) { await refreshUser(); return }
+      setRevision(r => r + 1)
+    }
+  }
+  const lotName = id => lots.find(l => l.id === id)?.name ?? `Bãi #${id}`
+  return <Layout>
+    <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', gap: 2, mb: 2 }}>
+      <Box><Typography variant="h4">Quản lý tài khoản</Typography>
+        <Typography sx={{ color: 'text.secondary', mt: 1 }}>Phân quyền, phân công bãi và trạng thái truy cập của người dùng.</Typography></Box>
+      <Stack direction="row" spacing={1}>
+        <Button variant="outlined" disabled={loading || mutation.saving} onClick={() => setRevision(r => r + 1)}>Tải lại</Button>
+        <Button variant="contained" disabled={loading || !!error || mutation.saving} onClick={() => open()}>Thêm tài khoản</Button>
+      </Stack>
+    </Stack>
+    <Box component="form" onSubmit={e => { e.preventDefault(); filter('query', search.trim()) }} sx={{ mb: 2 }}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ flexWrap: 'wrap', gap: 2 }}>
+        <TextField select label="Lọc vai trò" value={filters.role} sx={{ minWidth: 180 }} disabled={mutation.saving} onChange={e => filter('role', e.target.value)}>
+          <MenuItem value="all">Tất cả vai trò</MenuItem>{Object.entries(roles).map(([id, label]) => <MenuItem key={id} value={id}>{label}</MenuItem>)}
+        </TextField>
+        <TextField select label="Lọc trạng thái" value={filters.active} sx={{ minWidth: 180 }} disabled={mutation.saving} onChange={e => filter('active', e.target.value)}>
+          <MenuItem value="all">Tất cả trạng thái</MenuItem><MenuItem value="true">Hoạt động</MenuItem><MenuItem value="false">Đã khóa</MenuItem>
+        </TextField>
+        <TextField label="Tìm tên, email, số điện thoại" value={search} onChange={e => setSearch(e.target.value)} disabled={mutation.saving} sx={{ flex: 1, minWidth: 180 }} slotProps={{ htmlInput: { maxLength: 256 } }} />
+        <Button type="submit" variant="outlined" disabled={mutation.saving}>Tìm kiếm</Button>
+      </Stack>
+    </Box>
+    {notice && <Alert severity="success" sx={{ mb: 2 }}>{notice}</Alert>}
+    {error && <Alert severity="error" sx={{ mb: 2 }}>{error} Nhấn Tải lại để thử lại.</Alert>}
+    {loading ? <Typography role="status">Đang tải dữ liệu...</Typography> : !error && <>
+      <TableContainer component={Card}><Table sx={{ minWidth: 1000 }}>
+        <TableHead><TableRow>{['Họ tên', 'Email / điện thoại', 'Vai trò', 'Bãi phân công', 'Trạng thái', 'Ngày tạo', 'Thao tác'].map(label => <TableCell key={label}>{label}</TableCell>)}</TableRow></TableHead>
+        <TableBody>{users.map(u => <TableRow key={u.id}>
+          <TableCell sx={{ fontWeight: 600 }}>{u.name}{u.id === currentUser.id ? ' (Bạn)' : ''}</TableCell>
+          <TableCell sx={{ overflowWrap: 'anywhere' }}>{u.email}<Typography variant="body2" sx={{ color: 'text.secondary' }}>{u.phone || '—'}</Typography></TableCell>
+          <TableCell><Chip size="small" color={u.role === 'Admin' ? 'secondary' : u.role === 'Staff' ? 'success' : 'primary'} label={roles[u.role]} /></TableCell>
+          <TableCell>{u.assignedParkingLotId ? lotName(u.assignedParkingLotId) : '—'}</TableCell>
+          <TableCell><Chip size="small" color={u.isActive ? 'success' : 'default'} label={u.isActive ? 'Hoạt động' : 'Đã khóa'} /></TableCell>
+          <TableCell>{formatParkingTime(u.createdAt)}</TableCell>
+          <TableCell><Stack sx={{ alignItems: 'flex-start' }}>
+            <Button size="small" disabled={mutation.saving} onClick={() => open(u)}>Sửa</Button>
+            <Button size="small" color={u.isActive ? 'warning' : 'success'} disabled={mutation.saving} onClick={() => open(u, true)}>{u.isActive ? 'Khóa tài khoản' : 'Mở khóa'}</Button>
+          </Stack></TableCell>
+        </TableRow>)}{!users.length && <TableRow><TableCell colSpan={7}>Không có tài khoản phù hợp.</TableCell></TableRow>}</TableBody>
+      </Table></TableContainer>
+      <Stack direction="row" spacing={1} sx={{ mt: 2, alignItems: 'center', justifyContent: 'flex-end' }}>
+        <Button disabled={page === 1 || mutation.saving} onClick={() => setPage(p => p - 1)}>Trang trước</Button><Typography>Trang {page}</Typography>
+        <Button disabled={users.length < 20 || mutation.saving} onClick={() => setPage(p => p + 1)}>Trang sau</Button>
+      </Stack>
+    </>}
+    <Dialog open={!!dialog} onClose={close} fullWidth maxWidth="sm">
+      <Box component="form" onSubmit={submit}>
+        <DialogTitle>{dialog?.id ? 'Sửa tài khoản' : 'Thêm tài khoản'}</DialogTitle>
+        <DialogContent><Stack spacing={2} sx={{ pt: 1 }}>
+          {mutation.error && <Alert severity="error">{mutation.error}</Alert>}
+          {dialog?.id === currentUser.id && <Alert severity="warning">Bạn đang sửa tài khoản của mình. Nếu khóa hoặc đổi vai trò, hệ thống sẽ cập nhật phiên đăng nhập sau khi lưu.</Alert>}
+          <Box component="fieldset" disabled={mutation.saving} sx={{ border: 0, p: 0, m: 0, minWidth: 0 }}><Stack spacing={2}>
+            <TextField label="Họ tên" required value={form.name ?? ''} onChange={e => field('name', e.target.value)} slotProps={{ htmlInput: { maxLength: 100 } }} />
+            <TextField label="Email" type="email" required value={form.email ?? ''} onChange={e => field('email', e.target.value)} slotProps={{ htmlInput: { maxLength: 256 } }} />
+            <TextField label="Số điện thoại" value={form.phone ?? ''} onChange={e => field('phone', e.target.value)} slotProps={{ htmlInput: { maxLength: 20 } }} />
+            {!dialog?.id && <TextField label="Mật khẩu ban đầu" type="password" required autoComplete="new-password" value={form.password ?? ''} onChange={e => field('password', e.target.value)} helperText="Từ 8 đến 128 ký tự" slotProps={{ htmlInput: { minLength: 8, maxLength: 128 } }} />}
+            <TextField select label="Vai trò" required value={form.role ?? 'Staff'} onChange={e => setForm(f => ({ ...f, role: e.target.value, assignedParkingLotId: '' }))}>
+              {Object.entries(roles).map(([id, label]) => <MenuItem key={id} value={id}>{label}</MenuItem>)}
+            </TextField>
+            {form.role === 'Staff' && <TextField select label="Bãi phân công" required value={form.assignedParkingLotId ?? ''} onChange={e => field('assignedParkingLotId', e.target.value)} helperText="Mỗi nhân viên làm việc tại một bãi đang hoạt động.">
+              {lots.map(l => <MenuItem key={l.id} value={l.id} disabled={!l.isActive}>{l.name}{!l.isActive ? ' (ngừng hoạt động)' : ''}</MenuItem>)}
+            </TextField>}
+            <FormControlLabel control={<Checkbox checked={!!form.isActive} onChange={e => field('isActive', e.target.checked)} />} label="Đang hoạt động" />
+            <TextField label="Lý do thay đổi" required value={form.reason ?? ''} onChange={e => field('reason', e.target.value)} slotProps={{ htmlInput: { maxLength: 1000 } }} />
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>Khóa tài khoản giữ nguyên lịch sử và lượt gửi xe. Luôn phải còn một quản trị viên hoạt động. Khách đang có lịch xác nhận hoặc xe đang gửi chưa thể đổi vai trò.</Typography>
+          </Stack></Box>
+        </Stack></DialogContent>
+        <DialogActions><Button disabled={mutation.saving} onClick={close}>Đóng</Button><Button type="submit" variant="contained" disabled={mutation.saving}>{mutation.saving ? 'Đang lưu...' : 'Lưu tài khoản'}</Button></DialogActions>
       </Box>
-    </Layout>
-  )
+    </Dialog>
+  </Layout>
 }
-
-export default ManageUsers
