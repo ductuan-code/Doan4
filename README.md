@@ -19,7 +19,8 @@
 | Xe ra và thu tiền | Phí từ server theo đơn giá lúc vào; đối chiếu số tiền, ghi Payment và đóng phiên trong cùng transaction; chống thu trùng |
 | Lịch sử gửi xe / phiếu thu | Customer chỉ xem lượt của mình; Staff xem trong bãi; tìm theo biển số/mã phiên, phân trang và xem phiếu thu |
 | Quản trị bãi / khu / vị trí | Thêm, sửa, ngừng hoạt động và kích hoạt lại; bắt buộc lý do, audit và mã yêu cầu; giữ lịch sử |
-| Bảo trì vị trí | Admin bật/tắt bảo trì; chặn khi có xe; giữ lịch đặt tương lai và khoảng đệm sau trả xe |
+| Bảo trì vị trí | Admin hoặc Staff đúng bãi bật/tắt bảo trì; Staff phải đối chiếu vị trí thực tế; chặn khi có xe, giữ lịch đặt và khoảng đệm |
+| Trạng thái bãi của Staff | Xem từng vị trí, khu/tầng, nhóm xe, vận hành/cấu hình, đệm, lịch còn hiệu lực, xe đang gửi; lọc và mở lượt gửi liên quan; tự làm mới 30 giây |
 | Bảng giá | Sửa giá theo loại xe, tạo phiên bản mới, xem lịch sử có phân trang; xe đã vào giữ đơn giá cũ |
 | Quản lý tài khoản | Thêm tài khoản với mật khẩu hash, sửa thông tin/vai trò/phân công, khóa/mở; tìm kiếm, lọc và phân trang từ SQL; giữ ít nhất một Admin hoạt động |
 | Hiệu lực quyền | API đọc lại trạng thái, vai trò, bãi phân công ở mỗi yêu cầu; tự sửa tài khoản sẽ cập nhật phiên và điều hướng theo quyền mới |
@@ -166,6 +167,7 @@ Danh sách khả dụng là kết quả tại thời điểm tìm, không giữ 
 | POST | `/api/reservations/{id}/service-issue` | Staff đúng bãi; ghi khách đã đến gặp sự cố; bắt buộc lý do, xác nhận đối chiếu và Idempotency-Key |
 | POST | `/api/reservations/{id}/unfulfilled` | Staff đúng bãi; kết thúc không phục vụ được; cùng yêu cầu xác nhận/lý do/key |
 | PATCH | `/api/sessions/{id}/plate` | Staff đúng bãi; sửa biển số walk-in OPEN trong 5 phút đầu, bắt buộc lý do/đối chiếu/key |
+| PUT | `/api/staff/slots/{id}/maintenance` | Staff đúng bãi; bắt buộc isMaintenance, reason, positionVerified=true và Idempotency-Key |
 
 POST/PATCH phương tiện nhận đầy đủ trạng thái biểu mẫu để nội dung yêu cầu lặp ổn định:
 
@@ -228,6 +230,18 @@ Staff phải có đúng một bãi phân công đang hoạt động; Customer/Ad
 
 Mật khẩu lưu trong Users bằng ASP.NET Core Identity với salt ngẫu nhiên. Backend tạo thêm fingerprint PBKDF2 theo actor/key để yêu cầu tạo tài khoản có thể gửi lại dù hash Identity mỗi lần khác nhau. Thay mật khẩu nhưng dùng lại key cũ trả 409; không tạo user trùng. Mật khẩu/hash/fingerprint không trả ra API hoặc ghi trong audit; RequestRecord chỉ lưu hash nội dung và phản hồi không chứa mật khẩu. Chức năng đặt lại/đổi mật khẩu chưa thuộc bản quản lý tài khoản này. Không có API xóa vật lý tài khoản.
 
+## Trạng thái bãi và bảo trì cho nhân viên
+
+Staff mở mục **Trạng thái bãi** (`/staff/parking-status`). Màn hình chỉ đọc vị trí trong bãi đang được phân công từ `/api/staff/operations`; không cho chọn bãi khác từ client. Danh sách gồm ID bãi/khu, tầng, cấu hình hoạt động, trạng thái vận hành, thời gian đệm, số lịch CONFIRMED còn hiệu lực và biển số của phiên đang mở. Số lịch đã loại các lịch quá hạn dù job chưa cập nhật. Nút **Xem lượt gửi** dẫn đến tra cứu xe ra bằng biển số trong cùng phạm vi quyền.
+
+Các thẻ số liệu chỉ tính vị trí có đủ bãi/khu/slot hoạt động và tính toàn bãi, không đổi theo bộ lọc. Còn đệm là một thuộc tính riêng: vị trí đang bảo trì vẫn có thể còn thời gian đệm. Bộ lọc cho phép chọn khu/tầng, loại xe, nhóm đặt trước/trực tiếp, trạng thái và tìm mã vị trí/khu/biển số. Cấu hình ngừng hoạt động được hiển thị riêng, không bị hiểu là vị trí có thể nhận xe.
+
+Chọn **Bảo trì** hoặc **Kết thúc bảo trì**, ghi lý do và xác nhận đã kiểm tra vị trí thực tế. PUT nhận ví dụ `{ "isMaintenance": true, "reason": "Sửa đèn vị trí", "positionVerified": true }`. Vị trí có xe OPEN không được bật hoặc tắt bảo trì. Nếu trạng thái đổi sau khi mở biểu mẫu, SQL kiểm tra lại trong transaction và trả 409; giao diện không coi thao tác thất bại là thành công.
+
+Bảo trì không hủy lịch đã xác nhận, không xóa/kéo dài buffer_until và không kích hoạt lại cấu hình đã ngừng. Biểu mẫu cảnh báo số lịch còn hiệu lực để nhân viên điều phối khi khách đến. Mỗi thay đổi ghi Staff, vị trí, lý do và mã yêu cầu trong audit. Khi mất phản hồi sau commit, thử lại giữ nguyên nội dung/key; không lặp audit. Sau khi lưu, bảng tải lại trạng thái thực tế. Lỗi tải dữ liệu ẩn bảng và số liệu cũ, có nút thử lại.
+
+Phần này dùng `usp_GetSlotOperations` và `usp_SetSlotMaintenance` đã có sẵn; **không cần migration hoặc chạy lại SQL**.
+
 ## Xử lý sự cố và sửa biển số
 
 Tại **Check-in xe**, tra mã đặt rồi chọn **Ghi nhận sự cố** khi khách và xe đã đến, có trở ngại thực tế. Biểu mẫu yêu cầu lý do và xác nhận đã đối chiếu khách/xe. Gửi JSON `{ "reason": "Vị trí đang bảo trì, khách đã đến", "customerPresent": true }`. Không nhận thời điểm hay trạng thái từ client.
@@ -273,6 +287,8 @@ Hai thủ tục mới đọc trong transaction với shared application lock cù
 - `tests/ui-reports.cjs`: ba dashboard, làm mới theo giao dịch thật, chọn ngày/bãi, preset ngày Việt Nam trong browser UTC, biểu đồ, số liệu 0, lỗi mạng, phản hồi cũ sau khi đổi bãi và bố cục di động.
 - `tests/operations_integration.py`: 144 kiểm tra quyền, điều kiện, audit và replay đồng thời; xử lý sau hạn no-show nhưng còn hạn sự cố; UNFULFILLED không tạo lượt/thu tiền; đua check-in/kết thúc; sửa biển số không đổi chủ/giá, chống trùng toàn hệ thống, đua với checkout và quan sát tác vụ nền thật kết thúc sự cố quá hạn.
 - `tests/ui-operations.cjs`: ghi sự cố, hạn xử lý, không phục vụ được, check-in giải quyết sự cố, lỗi khi quá hạn, sửa biển số, mất phản hồi sau commit, lưu sau reload, lịch sử khách và bố cục di động.
+- `tests/maintenance_integration.py`: 103 kiểm tra phạm vi bãi/role/token, không nhận bãi do client tự chọn, kiểm tra dữ liệu, bảo trì có lịch đặt, chống replay/audit trùng, giữ đệm, chặn khi có xe, cấu hình đã ngừng, lịch quá hạn và đua bảo trì với nhận xe.
+- `tests/ui-maintenance.cjs`: bảng trạng thái thật, các bộ lọc, giữ số liệu toàn bãi, cảnh báo lịch đặt, mất phản hồi/retry, trạng thái đổi trong lúc mở biểu mẫu, đệm sau mở lại, liên kết lượt gửi, lỗi mạng/thử lại, bảo vệ route và bố cục di động.
 
 Chạy lại kiểm tra sau khi mở cả backend và frontend:
 
@@ -292,8 +308,8 @@ dotnet build backend/ParkingLotAPI.csproj --no-restore
 python tests/run_admin_tests.py --node DUONG_DAN_NODE_EXE --node-modules DUONG_DAN_NODE_MODULES_CO_PLAYWRIGHT
 ```
 
-Bộ điều phối tự tạo `ParkingAdminVerify_<mã ngẫu nhiên>`, khởi tạo bằng mục 1 của `sql.md`, chạy lại các migration để kiểm tra, mở backend/frontend riêng ở các cổng trống, chạy kiểm thử bãi/giá, dashboard/báo cáo, sự cố, nhận/trả xe và tài khoản rồi dừng đúng tiến trình và xóa đúng database do nó tạo. Có thể chọn `--suite parking`, `--suite users`, `--suite reports`, `--suite operations` hoặc `--suite sessions` khi chỉ cần kiểm tra một phần. Các bài kiểm thử mới từ chối tên database khác mẫu này; các bài nhận/trả xe cũ cũng dùng database tạm khi chạy qua bộ điều phối. Không cần mở ứng dụng chính; Node ưu tiên PATH rồi runtime Codex nếu có, các tham số Node có thể bỏ qua trên máy hiện tại. Bài sự cố có thể đợi tối đa 70 giây để quan sát job thực tế. Log và ảnh kiểm tra nằm trong `.work/`, không đưa lên Git.
+Bộ điều phối tự tạo `ParkingAdminVerify_<mã ngẫu nhiên>`, khởi tạo bằng mục 1 của `sql.md`, chạy lại các migration để kiểm tra, mở backend/frontend riêng ở các cổng trống, chạy kiểm thử bãi/giá, dashboard/báo cáo, bảo trì Staff, sự cố, nhận/trả xe và tài khoản rồi dừng đúng tiến trình và xóa đúng database do nó tạo. Có thể chọn `--suite parking`, `--suite users`, `--suite reports`, `--suite maintenance`, `--suite operations` hoặc `--suite sessions` khi chỉ cần kiểm tra một phần. Các bài kiểm thử mới từ chối tên database khác mẫu này; các bài nhận/trả xe cũ cũng dùng database tạm khi chạy qua bộ điều phối. Không cần mở ứng dụng chính; Node ưu tiên PATH rồi runtime Codex nếu có, các tham số Node có thể bỏ qua trên máy hiện tại. Bài sự cố có thể đợi tối đa 70 giây để quan sát job thực tế. Log và ảnh kiểm tra nằm trong `.work/`, không đưa lên Git.
 
 ## Phần tiếp theo
 
-Các luồng sự cố phục vụ và sửa biển số đã có API/giao diện và kiểm thử. Tiếp theo nên rà soát các yêu cầu còn lại trong blueprint, chuẩn bị kịch bản demo và hoàn thiện báo cáo học phần. Các chức năng nâng cao như xuất báo cáo thành tệp, tự đổi mật khẩu và giao diện bảo trì riêng cho Staff chưa thuộc bản này; bảo trì qua giao diện hiện do Admin thực hiện.
+Các luồng sự cố phục vụ, sửa biển số và trạng thái/bảo trì cho Staff đã có API/giao diện và kiểm thử. Tiếp theo nên rà soát các yêu cầu còn lại trong blueprint, chuẩn bị kịch bản demo và hoàn thiện báo cáo học phần. Các chức năng nâng cao như xuất báo cáo thành tệp và tự đổi mật khẩu chưa thuộc bản này.
