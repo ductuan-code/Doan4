@@ -1,6 +1,6 @@
 # SQL — Quản lý bãi đỗ xe trực tuyến
 
-Đối chiếu `blueprint.md`, cập nhật ngày 22/10/2026. Dùng **SQL Server 2019 trở lên** (Express, Developer hoặc LocalDB); không chạy script này trong MySQL. Backend hiện tại là ASP.NET Core/.NET 10, phù hợp với provider `Microsoft.EntityFrameworkCore.SqlServer` do Microsoft duy trì ([tài liệu](https://learn.microsoft.com/en-us/ef/core/providers/sql-server/)). MySQL cũng làm được đề tài này, nhưng với stack và script hiện tại nên chọn SQL Server.
+Đối chiếu `blueprint.md`, cập nhật ngày 25/10/2026. Dùng **SQL Server 2019 trở lên** (Express, Developer hoặc LocalDB); không chạy script này trong MySQL. Backend hiện tại là ASP.NET Core/.NET 10, phù hợp với provider `Microsoft.EntityFrameworkCore.SqlServer` do Microsoft duy trì ([tài liệu](https://learn.microsoft.com/en-us/ef/core/providers/sql-server/)). MySQL cũng làm được đề tài này, nhưng với stack và script hiện tại nên chọn SQL Server.
 
 ## Cách chạy
 
@@ -638,8 +638,11 @@ BEGIN
             resolved_by_staff_id = CASE WHEN @MarkUnfulfilled = 1 THEN @ActorId ELSE NULL END,
             resolved_at = CASE WHEN @MarkUnfulfilled = 1 THEN @Now ELSE NULL END
         WHERE id = @ReservationId;
-        SET @Response = (SELECT @ReservationId AS id,CASE WHEN @MarkUnfulfilled = 1 THEN 'UNFULFILLED' ELSE 'CONFIRMED' END AS status
-            FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+        DECLARE @IssueAt datetime2(7)=COALESCE(@Issue,@Now),@Deadline datetime2(7);
+        SET @Deadline=CASE WHEN DATEADD(MINUTE,15,@IssueAt)<@End THEN DATEADD(MINUTE,15,@IssueAt) ELSE @End END;
+        SET @Response = (SELECT @ReservationId AS id,CASE WHEN @MarkUnfulfilled = 1 THEN 'UNFULFILLED' ELSE 'CONFIRMED' END AS status,
+            @IssueAt AS serviceIssueAt,@Deadline AS resolutionDeadline,CASE WHEN @MarkUnfulfilled=1 THEN @Now END AS resolvedAt
+            FOR JSON PATH, INCLUDE_NULL_VALUES, WITHOUT_ARRAY_WRAPPER);
         INSERT dbo.AuditLog(actor_user_id,action,entity_type,entity_id,reason,details_json,request_id)
         VALUES (@ActorId,CASE WHEN @MarkUnfulfilled = 1 THEN 'RESERVATION_UNFULFILLED' ELSE 'SERVICE_ISSUE_RECORDED' END,
             'Reservation',@ReservationId,@Reason,@Payload,@Key);
@@ -1268,7 +1271,14 @@ BEGIN
         CASE WHEN r.status = 'CONFIRMED' AND r.service_issue_at IS NULL AND @Now >= r.expires_at THEN 'EXPIRED'
             WHEN r.status = 'CONFIRMED' AND r.service_issue_at IS NOT NULL
                 AND (@Now >= DATEADD(MINUTE,15,r.service_issue_at) OR @Now >= r.end_time) THEN 'UNFULFILLED'
-            ELSE r.status END AS effective_status
+            ELSE r.status END AS effective_status,
+        CASE WHEN r.service_issue_at IS NOT NULL THEN
+            CASE WHEN DATEADD(MINUTE,15,r.service_issue_at)<r.end_time THEN DATEADD(MINUTE,15,r.service_issue_at) ELSE r.end_time END END AS resolution_deadline,
+        CAST(CASE WHEN u.role='Staff' AND r.status='CONFIRMED' AND r.service_issue_at IS NULL
+            AND @Now>=DATEADD(MINUTE,-15,r.start_time) AND @Now<r.expires_at THEN 1 ELSE 0 END AS bit) AS can_record_issue,
+        CAST(CASE WHEN u.role='Staff' AND r.status='CONFIRMED' AND @Now>=DATEADD(MINUTE,-15,r.start_time)
+            AND ((r.service_issue_at IS NULL AND @Now<r.expires_at) OR (r.service_issue_at IS NOT NULL
+                AND @Now<DATEADD(MINUTE,15,r.service_issue_at) AND @Now<r.end_time)) THEN 1 ELSE 0 END AS bit) AS can_mark_unfulfilled
     FROM dbo.Reservation r JOIN dbo.ParkingSlot s ON s.id = r.slot_id JOIN dbo.Zone z ON z.id = s.zone_id
     JOIN dbo.ParkingLot p ON p.id = z.parking_lot_id JOIN dbo.Users u ON u.id = @ActorId
     WHERE (@ReservationId IS NULL OR r.id = @ReservationId) AND (@ParkingLotId IS NULL OR z.parking_lot_id = @ParkingLotId)
@@ -1289,7 +1299,10 @@ BEGIN
     IF @Page IS NULL OR @Page < 1 OR @Page > 1000000 OR @PageSize IS NULL OR @PageSize NOT BETWEEN 1 AND 200
         THROW 51000, N'Tham số phân trang không hợp lệ.', 1;
     DECLARE @Normalized varchar(32) = dbo.fn_NormalizePlate(@Plate),@Now datetime2(7) = SYSUTCDATETIME();
-    SELECT d.*,CAST(CASE WHEN d.status = 'OPEN' AND d.planned_end_time < @Now THEN 1 ELSE 0 END AS bit) AS is_overstay
+    SELECT d.*,CAST(CASE WHEN d.status = 'OPEN' AND d.planned_end_time < @Now THEN 1 ELSE 0 END AS bit) AS is_overstay,
+        CASE WHEN d.reservation_id IS NULL THEN DATEADD(MINUTE,5,d.check_in_time) END AS plate_correction_deadline,
+        CAST(CASE WHEN u.role='Staff' AND d.reservation_id IS NULL AND d.status='OPEN'
+            AND @Now<=DATEADD(MINUTE,5,d.check_in_time) THEN 1 ELSE 0 END AS bit) AS can_correct_plate
     FROM dbo.vw_SessionDetails d JOIN dbo.Users u ON u.id = @ActorId
     WHERE (@SessionId IS NULL OR d.id = @SessionId) AND (@ParkingLotId IS NULL OR d.parking_lot_id = @ParkingLotId)
         AND (@SessionCode IS NULL OR d.session_code = @SessionCode)
@@ -1804,7 +1817,7 @@ WHERE (a.slot_id = b.slot_id AND a.start_time < DATEADD(MINUTE,15,b.end_time) AN
 - `available_slots` trong dashboard là trạng thái vận hành AVAILABLE, có thể còn cooldown hoặc lịch sắp tới; số có thể **nhận xe ngay/đặt được** phải lấy từ truy vấn khả dụng tương ứng. Không cộng reservation vào occupied_slots.
 - Sửa biển số walk-in không đổi customer_id/vehicle_id. Nếu phiên đã gắn xe đăng ký, chỉ sửa cách trình bày biển số, không đổi biển số chuẩn hóa sang xe khác; không tự gán lịch sử sang chủ mới.
 - Khóa Customer không đóng phiên đang gửi: Staff vẫn check-out được. Các lịch đặt của tài khoản bị khóa cần xử lý theo nghiệp vụ; không xóa lịch sử. Không đổi bãi/khu của cấu hình đã tạo để báo cáo lịch sử giữ đúng địa điểm.
-- Backend hiện tại gọi procedure qua `Microsoft.Data.SqlClient`, có API và giao diện thật cho đăng ký/đăng nhập, phương tiện, tìm/đặt/hủy/lịch sử, tác vụ hết hạn, nhận xe, xem phí, thu tiền và xác nhận xe ra. Customer có lịch sử gửi xe/phiếu thu. Quản trị, dashboard, báo cáo và màn hình xử lý sự cố/sửa biển số walk-in còn phải nối API; xem tiến độ trong `README.md`. Database cũ chỉ cần cập nhật bộ lọc mã bằng `scripts/sql/20261022_staff_queries.sql`; không tạo lại bảng. Nếu chọn EF migration về sau, dùng một quy trình quản lý schema nhất quán, không tự chạy `EnsureCreated()` hoặc initial migration lên database đã tạo bằng script này.
+- Backend hiện tại gọi procedure qua `Microsoft.Data.SqlClient`, có API/giao diện thật cho đăng nhập, phương tiện, đặt/hủy/lịch sử, nhận/trả xe, thu tiền, quản trị bãi/giá/tài khoản, dashboard/báo cáo, xử lý sự cố phục vụ và sửa biển số walk-in. Customer có lịch sử gửi xe/phiếu thu và lý do xử lý sự cố. Xem tiến độ/phạm vi còn lại trong `README.md`. Database cũ nâng cấp bằng các script trong `scripts/sql` theo thứ tự ngày, kết thúc bằng `20261025_staff_exceptions.sql`; không tạo lại bảng. Máy hiện tại đã cập nhật. Nếu chọn EF migration về sau, dùng một quy trình quản lý schema nhất quán, không tự chạy `EnsureCreated()` hoặc initial migration lên database đã tạo bằng script này.
 
 Connection string mẫu cho môi trường cục bộ (chỉnh server theo máy; giữ thông tin nhạy cảm trong User Secrets/cấu hình môi trường):
 
