@@ -52,7 +52,7 @@ public sealed class AdminParkingController(ParkingRepository repository) : Contr
         Mutation(await repository.SaveAdminSlotAsync(ActorId, id, request, Key(key), cancellation));
     [HttpPut("slots/{id:int:min(1)}/maintenance")]
     public async Task<IActionResult> Maintenance(int id, MaintenanceWriteRequest request, [FromHeader(Name = "Idempotency-Key")] string? key, CancellationToken cancellation) =>
-        Mutation(await repository.SetAdminMaintenanceAsync(ActorId, id, request, Key(key), cancellation));
+        Mutation(await repository.SetSlotMaintenanceAsync(ActorId, id, request, Key(key), cancellation));
     [HttpGet("pricing")]
     public async Task<IActionResult> Prices([FromQuery] bool includeHistory = false, [FromQuery, Range(1, 1000000)] int page = 1,
         [FromQuery, Range(1, 200)] int pageSize = 20, CancellationToken cancellation = default) =>

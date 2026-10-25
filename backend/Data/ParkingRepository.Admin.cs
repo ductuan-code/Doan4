@@ -70,7 +70,7 @@ public sealed partial class ParkingRepository
             Text("@Address", 500, address), Text("@FloorLabel", 50, floor),
             new SqlParameter("@VehicleType", SqlDbType.VarChar, 12) { Value = (object?)type ?? DBNull.Value },
             new SqlParameter("@AcceptsReservations", SqlDbType.Bit) { Value = (object?)reserves ?? DBNull.Value }, Text("@Reason", 1000, r.Reason.Trim()));
-    public Task<MutationResult> SetAdminMaintenanceAsync(int actorId, int id, MaintenanceWriteRequest r, string key, CancellationToken cancellation) =>
+    public Task<MutationResult> SetSlotMaintenanceAsync(int actorId, int id, MaintenanceWriteRequest r, string key, CancellationToken cancellation) =>
         ExecuteMutationAsync("dbo.usp_SetSlotMaintenance", cancellation, Number("@ActorId", actorId), Number("@SlotId", id),
             new SqlParameter("@IsMaintenance", SqlDbType.Bit) { Value = r.IsMaintenance!.Value }, Text("@Reason", 1000, r.Reason.Trim()),
             new SqlParameter("@Key", SqlDbType.VarChar, 128) { Value = key });

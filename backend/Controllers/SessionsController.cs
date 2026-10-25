@@ -14,6 +14,20 @@ namespace ParkingLotAPI.Controllers;
 public sealed class StaffOperationsController(ParkingRepository repository) : ControllerBase
 {
     private int ActorId => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+    [HttpPut("slots/{id:int:min(1)}/maintenance")]
+    public async Task<IActionResult> Maintenance(int id, StaffMaintenanceRequest request,
+        [FromHeader(Name="Idempotency-Key")] string? key, CancellationToken cancellation)
+    {
+        if (request.PositionVerified != true)
+            throw new ApiException(400,"POSITION_NOT_VERIFIED","Cần xác nhận đã kiểm tra vị trí thực tế.");
+        if (key is null || !Regex.IsMatch(key,@"\A[A-Za-z0-9][A-Za-z0-9._:-]{0,127}\z"))
+            throw new ApiException(400,"IDEMPOTENCY_KEY_REQUIRED","Cần mã yêu cầu hợp lệ cho thao tác bảo trì.");
+        var result=await repository.SetSlotMaintenanceAsync(ActorId,id,new MaintenanceWriteRequest
+        { IsMaintenance=request.IsMaintenance, Reason=request.Reason },key,cancellation);
+        using var json=JsonDocument.Parse(result.Json);
+        if (result.IsReplay) Response.Headers["Idempotency-Replayed"]="true";
+        return StatusCode(result.Status,json.RootElement.Clone());
+    }
     [HttpGet("operations")]
     public async Task<IActionResult> Operations(CancellationToken cancellation)
     {
