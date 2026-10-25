@@ -21,7 +21,9 @@ public sealed partial class ParkingRepository
         while (await r.ReadAsync(cancellation)) rows.Add(new(r.GetInt32(r.GetOrdinal("slot_id")), r.GetString(r.GetOrdinal("code")),
             r.GetString(r.GetOrdinal("zone_name")), r.GetString(r.GetOrdinal("parking_lot_name")), r.GetString(r.GetOrdinal("vehicle_type")),
             r.GetBoolean(r.GetOrdinal("accepts_reservations")), r.GetBoolean(r.GetOrdinal("slot_is_active")) && r.GetBoolean(r.GetOrdinal("zone_is_active")) && r.GetBoolean(r.GetOrdinal("lot_is_active")),
-            r.GetString(r.GetOrdinal("operational_status")), r.GetBoolean(r.GetOrdinal("is_in_buffer")), OptionalUtc(r, "buffer_until"), OptionalInt(r, "open_session_id")));
+            r.GetString(r.GetOrdinal("operational_status")), r.GetBoolean(r.GetOrdinal("is_in_buffer")), OptionalUtc(r, "buffer_until"), OptionalInt(r, "open_session_id"),
+            r.GetInt32(r.GetOrdinal("parking_lot_id")), r.GetInt32(r.GetOrdinal("zone_id")), OptionalString(r,"floor_label"),
+            r.GetInt32(r.GetOrdinal("effective_confirmed_count")), OptionalString(r,"plate_number_snapshot")));
         return rows;
     }
     public Task<MutationResult> CheckInAsync(int actorId, CheckInRequest request, string key, CancellationToken cancellation) =>

@@ -17,7 +17,14 @@ public sealed class CheckOutRequest
     [Required, Range(typeof(decimal), "1", "999999999999999999")] public decimal? ConfirmedAmount { get; init; }
 }
 public sealed record SlotOperationView(int Id, string Code, string ZoneName, string ParkingLotName, string VehicleType,
-    bool AcceptsReservations, bool IsActive, string Status, bool IsInBuffer, DateTime? BufferUntil, int? OpenSessionId);
+    bool AcceptsReservations, bool IsActive, string Status, bool IsInBuffer, DateTime? BufferUntil, int? OpenSessionId,
+    int ParkingLotId, int ZoneId, string? FloorLabel, int ConfirmedReservationCount, string? PlateNumber);
+public sealed class StaffMaintenanceRequest
+{
+    [Required] public bool? IsMaintenance { get; init; }
+    [Required, StringLength(1000)] public string Reason { get; init; } = "";
+    [Required] public bool? PositionVerified { get; init; }
+}
 public sealed record SessionView(int Id, string SessionCode, int? ReservationId, string? ReservationCode,
     int? CustomerId, int SlotId, int ParkingLotId, string ParkingLotName, string ZoneName, string SlotCode,
     string PlateNumber, string VehicleType, DateTime CheckInTime, DateTime? CheckOutTime,
