@@ -1,7 +1,9 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute'
 import { AuthProvider } from './context/AuthContext'
-import { createTheme, ThemeProvider } from '@mui/material/styles'
+import { ThemeProvider } from '@mui/material/styles'
+import { CssBaseline } from '@mui/material'
+import theme from './theme'
 
 // Pages
 import HomePage from './pages/HomePage'
@@ -30,43 +32,11 @@ import ManagePricing from './pages/admin/ManagePricing'
 import ManageUsers from './pages/admin/ManageUsers'
 import Reports from './pages/admin/Reports'
 
-const theme = createTheme({
-  palette: {
-    primary:   { main: '#2563eb', light: '#60a5fa', dark: '#1d4ed8' },
-    secondary: { main: '#7c3aed', light: '#a78bfa', dark: '#5b21b6' },
-    success:   { main: '#059669', light: '#34d399', dark: '#047857' },
-    warning:   { main: '#d97706', light: '#fbbf24', dark: '#b45309' },
-    error:     { main: '#dc2626', light: '#f87171', dark: '#b91c1c' },
-    info:      { main: '#0891b2', light: '#22d3ee', dark: '#0e7490' },
-    background: { default: '#f0f4ff', paper: '#ffffff' },
-  },
-  typography: {
-    fontFamily: 'Roboto, sans-serif',
-    h4: { fontWeight: 700 },
-    h5: { fontWeight: 700 },
-    h6: { fontWeight: 600 },
-  },
-  shape: { borderRadius: 10 },
-  components: {
-    MuiButton: {
-      styleOverrides: {
-        root: { textTransform: 'none', fontWeight: 600, borderRadius: 8 },
-      },
-    },
-    MuiCard: {
-      styleOverrides: {
-        root: { borderRadius: 12, boxShadow: '0 2px 12px rgba(0,0,0,0.08)' },
-      },
-    },
-    MuiChip: {
-      styleOverrides: { root: { fontWeight: 500 } },
-    },
-  },
-})
 
 function App() {
   return (
     <ThemeProvider theme={theme}>
+      <CssBaseline />
       <AuthProvider>
         <Router>
           <Routes>
