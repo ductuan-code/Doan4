@@ -1,3 +1,4 @@
+import PageHeader from '../../components/PageHeader'
 import { useEffect, useState } from 'react'
 import { Alert, Box, Button, Card, MenuItem, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material'
 import Layout from '../../components/Layout'
@@ -40,11 +41,8 @@ export default function Reports() {
   }
   const totals = data?.totals
   return <Layout>
-    <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', gap: 2, mb: 2 }}>
-      <Box><Typography variant="h4">Báo cáo vận hành</Typography><Typography sx={{ color: 'text.secondary', mt: 1 }}>Lượt xe và tổng thu đã ghi nhận theo ngày Việt Nam.</Typography></Box>
-      <Button variant="outlined" disabled={loading} onClick={() => setRevision(r => r + 1)}>Làm mới</Button>
-    </Stack>
-    <Box component="form" onSubmit={submit} sx={{ mb: 2 }}>
+    <PageHeader title={'Báo cáo vận hành'} description={'Lượt xe và tổng thu đã ghi nhận theo ngày Việt Nam.'} eyebrow="Phân tích & thống kê" action={<Button variant="outlined" disabled={loading} onClick={() => setRevision(r => r + 1)}>Làm mới</Button>} />
+    <Box component="form" onSubmit={submit} sx={{ mb: 3, p: { xs: 2, sm: 2.5 }, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 3 }}>
       <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 2, flexWrap: 'wrap', mb: 2 }}>
         <TextField label="Từ ngày" required type="date" value={draft.fromDate} onChange={e => setDraft(f => ({ ...f, fromDate: e.target.value }))}
           slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: '2000-01-01', max: '2099-12-31' } }} />

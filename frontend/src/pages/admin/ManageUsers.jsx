@@ -1,3 +1,4 @@
+import PageHeader from '../../components/PageHeader'
 import { useEffect, useState } from 'react'
 import {
   Alert, Box, Button, Card, Checkbox, Chip, Dialog, DialogActions, DialogContent,
@@ -78,15 +79,11 @@ export default function ManageUsers() {
   }
   const lotName = id => lots.find(l => l.id === id)?.name ?? `Bãi #${id}`
   return <Layout>
-    <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', gap: 2, mb: 2 }}>
-      <Box><Typography variant="h4">Quản lý tài khoản</Typography>
-        <Typography sx={{ color: 'text.secondary', mt: 1 }}>Phân quyền, phân công bãi và trạng thái truy cập của người dùng.</Typography></Box>
-      <Stack direction="row" spacing={1}>
+    <PageHeader title={'Quản lý tài khoản'} description={'Phân quyền, phân công bãi và trạng thái truy cập của người dùng.'} eyebrow="Quản trị hệ thống" action={<Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
         <Button variant="outlined" disabled={loading || mutation.saving} onClick={() => setRevision(r => r + 1)}>Tải lại</Button>
         <Button variant="contained" disabled={loading || !!error || mutation.saving} onClick={() => open()}>Thêm tài khoản</Button>
-      </Stack>
-    </Stack>
-    <Box component="form" onSubmit={e => { e.preventDefault(); filter('query', search.trim()) }} sx={{ mb: 2 }}>
+      </Stack>} />
+    <Box component="form" onSubmit={e => { e.preventDefault(); filter('query', search.trim()) }} sx={{ mb: 3, p: { xs: 2, sm: 2.5 }, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 3 }}>
       <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ flexWrap: 'wrap', gap: 2 }}>
         <TextField select label="Lọc vai trò" value={filters.role} sx={{ minWidth: 180 }} disabled={mutation.saving} onChange={e => filter('role', e.target.value)}>
           <MenuItem value="all">Tất cả vai trò</MenuItem>{Object.entries(roles).map(([id, label]) => <MenuItem key={id} value={id}>{label}</MenuItem>)}

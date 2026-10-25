@@ -1,3 +1,4 @@
+import PageHeader from '../../components/PageHeader'
 import { useEffect, useState } from 'react'
 import {
   Alert, Box, Button, Card, Dialog, DialogActions, DialogContent, DialogTitle,
@@ -58,13 +59,10 @@ export default function ManagePricing() {
     }
   }
   return <Layout>
-    <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 2, justifyContent: 'space-between', mb: 2 }}>
-      <Typography variant="h4">Quản lý bảng giá</Typography>
-      <Stack direction="row" spacing={1}>
+    <PageHeader title={'Quản lý bảng giá'} description={'Đơn giá theo giờ và lịch sử các lần điều chỉnh.'} eyebrow="Quản trị hệ thống" action={<Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
         <Button variant="outlined" disabled={loading || mutation.saving} onClick={() => setRevision(r => r + 1)}>Tải lại</Button>
         <Button variant="contained" disabled={mutation.saving} onClick={() => { setHistory(h => !h); setPage(1) }}>{history ? 'Giá hiện hành' : 'Lịch sử giá'}</Button>
-      </Stack>
-    </Stack>
+      </Stack>} />
     <Alert severity="info" sx={{ mb: 2 }}>Giá tính theo giờ, làm tròn số giờ theo quy tắc tính phí của hệ thống. Giá mới áp dụng cho lượt nhận xe tiếp theo; xe đang gửi giữ đơn giá lúc vào.</Alert>
     {notice && <Alert severity="success" sx={{ mb: 2 }}>{notice}</Alert>}
     {error && <Alert severity="error" sx={{ mb: 2 }}>{error} Nhấn Tải lại để thử lại.</Alert>}

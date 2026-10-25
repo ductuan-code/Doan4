@@ -1,3 +1,4 @@
+import PageHeader from '../../components/PageHeader'
 import { useEffect, useState } from 'react'
 import {
   Alert, Box, Button, Card, Checkbox, Chip, Dialog, DialogActions, DialogContent,
@@ -38,25 +39,27 @@ export default function ParkingConfigPage({ kind }) {
     setError('')
     setRows([])
     const load = async () => {
+      let selectionChanged = false
       try {
         const list = (await adminAPI.getParkingLots()).data
         if (!current) return
         setLots(list)
         if (kind === 'lot') { setRows(list); return }
         const selectedLot = list.some(r => r.id === lotId) ? lotId : list[0]?.id ?? ''
-        if (selectedLot !== lotId) { setLotId(selectedLot); return }
+        if (selectedLot !== lotId) { selectionChanged = true; setLotId(selectedLot); return }
         if (!selectedLot) { setZones([]); return }
         const children = (await adminAPI.getZones(selectedLot)).data
         if (!current) return
         setZones(children)
         if (kind === 'zone') { setRows(children); return }
         const selectedZone = children.some(r => r.id === zoneId) ? zoneId : children[0]?.id ?? ''
-        if (selectedZone !== zoneId) { setZoneId(selectedZone); return }
+        if (selectedZone !== zoneId) { selectionChanged = true; setZoneId(selectedZone); return }
         if (!selectedZone) return
         const slots = (await adminAPI.getSlots(selectedZone)).data
         if (current) setRows(slots)
       } catch (e) { if (current) setError(getErrorMessage(e)) }
-      finally { if (current) setLoading(false) }
+      // Giữ bộ lọc khóa cho đến khi chuỗi chọn bãi/khu mặc định tải xong.
+      finally { if (current && !selectionChanged) setLoading(false) }
     }
     load()
     return () => { current = false }
@@ -104,14 +107,10 @@ export default function ParkingConfigPage({ kind }) {
     onChange={e => field(name, e.target.value)} slotProps={{ htmlInput: { maxLength } }} />
 
   return <Layout>
-    <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', gap: 2, mb: 2 }}>
-      <Box><Typography variant="h4">Quản lý {labels[kind]}</Typography>
-        <Typography sx={{ color: 'text.secondary', mt: 1 }}>Cấu hình hoạt động và giữ lịch sử giao dịch của bãi đỗ.</Typography></Box>
-      <Stack direction="row" spacing={1}>
+    <PageHeader title={`Quản lý ${labels[kind]}`} description={'Cấu hình hoạt động và giữ lịch sử giao dịch của bãi đỗ.'} eyebrow="Quản trị hệ thống" action={<Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
         <Button variant="outlined" disabled={loading || mutation.saving} onClick={() => setRevision(r => r + 1)}>Tải lại</Button>
         <Button variant="contained" disabled={loading || !!error || !parentReady || mutation.saving} onClick={() => open()}>Thêm {labels[kind]}</Button>
-      </Stack>
-    </Stack>
+      </Stack>} />
     {kind !== 'lot' && <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
       <TextField select label="Bãi đỗ xe" value={lotId} sx={{ minWidth: 220 }} disabled={mutation.saving || loading}
         onChange={e => { setLotId(e.target.value); setZoneId(''); setZones([]) }}>
