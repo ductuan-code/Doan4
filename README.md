@@ -31,6 +31,14 @@
 
 Các trang đã nối dữ liệu không hiển thị số liệu mẫu khi lỗi kết nối. Dashboard và báo cáo hiện phản ánh dữ liệu SQL thật. Chưa chỉnh các tệp báo cáo học phần trong giai đoạn tiếp tục phát triển ứng dụng này.
 
+## Giao diện
+
+Giao diện dùng nền sáng, menu xanh đậm và màu nhấn xanh ngọc thống nhất cho ba vai trò. Trang chủ có sơ đồ bãi minh họa; đăng nhập/đăng ký dùng chung bố cục và nhận diện ParkingLot. Các trang nghiệp vụ dùng tiêu đề, bảng, bộ lọc, thẻ thống kê và hộp thoại cùng phong cách. Số liệu trên dashboard vẫn lấy từ API; sơ đồ trang chủ chỉ là minh họa.
+
+Theme nằm ở `frontend/src/theme.js`; `Brand`, `Layout`, `AuthShell` và `PageHeader` là các thành phần dùng chung. Điện thoại có menu thu gọn, thẻ số liệu hai cột và bảng cuộn ngang trong khung riêng. Có nhãn cho nút hiện/ẩn mật khẩu, đánh dấu mục menu hiện tại, liên kết bỏ qua menu bằng bàn phím và hỗ trợ tùy chọn giảm chuyển động.
+
+Bản này không thay schema, không cần chạy lại SQL. Khi ứng dụng đang mở, tải lại trang để xem giao diện mới.
+
 ## Chạy trên máy hiện tại
 
 Database đã được tạo tại server **`localhost`**, database **`ParkingLotOnline`**. Sau khi cài lại Windows, instance đang chạy là instance mặc định, không phải `localhost\SQLEXPRESS` như trước. Không cần chạy lại script khởi tạo nếu database hiện đã có.
@@ -290,13 +298,11 @@ Hai thủ tục mới đọc trong transaction với shared application lock cù
 - `tests/maintenance_integration.py`: 103 kiểm tra phạm vi bãi/role/token, không nhận bãi do client tự chọn, kiểm tra dữ liệu, bảo trì có lịch đặt, chống replay/audit trùng, giữ đệm, chặn khi có xe, cấu hình đã ngừng, lịch quá hạn và đua bảo trì với nhận xe.
 - `tests/ui-maintenance.cjs`: bảng trạng thái thật, các bộ lọc, giữ số liệu toàn bãi, cảnh báo lịch đặt, mất phản hồi/retry, trạng thái đổi trong lúc mở biểu mẫu, đệm sau mở lại, liên kết lượt gửi, lỗi mạng/thử lại, bảo vệ route và bố cục di động.
 
-Chạy lại kiểm tra sau khi mở cả backend và frontend:
+Các bài API cũ dưới đây cần mở backend (và frontend khi chạy bài trình duyệt nhận/trả xe). Các bài trình duyệt phương tiện/đặt chỗ đã chuyển sang bộ điều phối database tạm ở phần tiếp theo:
 
 ```powershell
 python tests/auth_vehicles_integration.py
-node tests/ui-auth-vehicles.cjs DUONG_DAN_NODE_MODULES_CO_PLAYWRIGHT
 python tests/reservations_integration.py
-node tests/ui-reservations.cjs DUONG_DAN_NODE_MODULES_CO_PLAYWRIGHT
 python tests/sessions_integration.py
 node tests/ui-sessions.cjs DUONG_DAN_NODE_MODULES_CO_PLAYWRIGHT
 ```
@@ -308,7 +314,16 @@ dotnet build backend/ParkingLotAPI.csproj --no-restore
 python tests/run_admin_tests.py --node DUONG_DAN_NODE_EXE --node-modules DUONG_DAN_NODE_MODULES_CO_PLAYWRIGHT
 ```
 
-Bộ điều phối tự tạo `ParkingAdminVerify_<mã ngẫu nhiên>`, khởi tạo bằng mục 1 của `sql.md`, chạy lại các migration để kiểm tra, mở backend/frontend riêng ở các cổng trống, chạy kiểm thử bãi/giá, dashboard/báo cáo, bảo trì Staff, sự cố, nhận/trả xe và tài khoản rồi dừng đúng tiến trình và xóa đúng database do nó tạo. Có thể chọn `--suite parking`, `--suite users`, `--suite reports`, `--suite maintenance`, `--suite operations` hoặc `--suite sessions` khi chỉ cần kiểm tra một phần. Các bài kiểm thử mới từ chối tên database khác mẫu này; các bài nhận/trả xe cũ cũng dùng database tạm khi chạy qua bộ điều phối. Không cần mở ứng dụng chính; Node ưu tiên PATH rồi runtime Codex nếu có, các tham số Node có thể bỏ qua trên máy hiện tại. Bài sự cố có thể đợi tối đa 70 giây để quan sát job thực tế. Log và ảnh kiểm tra nằm trong `.work/`, không đưa lên Git.
+Bộ điều phối tự tạo `ParkingAdminVerify_<mã ngẫu nhiên>`, khởi tạo bằng mục 1 của `sql.md`, chạy lại các migration để kiểm tra, mở backend/frontend riêng ở các cổng trống, chạy kiểm thử bãi/giá, dashboard/báo cáo, bảo trì Staff, sự cố, nhận/trả xe, phương tiện/đặt chỗ, giao diện và tài khoản rồi dừng đúng tiến trình và xóa đúng database do nó tạo. Có thể chọn `--suite parking`, `--suite users`, `--suite reports`, `--suite maintenance`, `--suite operations`, `--suite sessions`, `--suite customer` hoặc `--suite design` khi chỉ cần kiểm tra một phần. Các bài kiểm thử mới từ chối tên database khác mẫu này; các bài nhận/trả xe cũ cũng dùng database tạm khi chạy qua bộ điều phối. Không cần mở ứng dụng chính; Node ưu tiên PATH rồi runtime Codex nếu có, các tham số Node có thể bỏ qua trên máy hiện tại. Bài sự cố có thể đợi tối đa 70 giây để quan sát job thực tế. Log và ảnh kiểm tra nằm trong `.work/`, không đưa lên Git.
+
+Kiểm tra riêng các phần giao diện vừa cập nhật:
+
+```powershell
+python tests/run_admin_tests.py --suite customer
+python tests/run_admin_tests.py --suite design
+```
+
+`customer` kiểm tra đăng nhập lỗi/đúng, thêm/sửa/ngừng phương tiện, đặt/hủy chỗ, xung đột, mất phản hồi sau khi lưu và múi giờ Việt Nam. `design` kiểm tra 19 trang ở 360, 390, 768 và 1440 px, liên kết trang chủ, đăng ký, hiện/ẩn mật khẩu, đăng nhập demo, menu điện thoại, mục menu hiện tại và điều hướng bàn phím. Bài này lưu ảnh máy tính/điện thoại trong thư mục `design/` thuộc mỗi lần chạy; không chấp nhận tràn ngang toàn trang, lỗi JavaScript hoặc cảnh báo MUI. Hai bài trình duyệt khách hàng từ chối chạy trực tiếp khi chưa có môi trường database tạm do bộ điều phối cung cấp.
 
 ## Phần tiếp theo
 
