@@ -70,6 +70,7 @@ export const reservationAPI = {
 // Xe vào/ra và lịch sử; server giới hạn theo tài khoản.
 export const sessionAPI = {
   getOperations: () => api.get('/staff/operations'),
+  setMaintenance: (id, data, key) => api.put(`/staff/slots/${id}/maintenance`, data, { headers: { 'Idempotency-Key': key } }),
   findReservation: code => api.get('/staff/reservations/lookup', { params: { code } }),
   checkIn: (data, key) => api.post('/sessions/checkin', data, { headers: { 'Idempotency-Key': key } }),
   getAll: params => api.get('/sessions', { params }),
