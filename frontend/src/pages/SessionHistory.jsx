@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { Alert, Box, Button, Card, Checkbox, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, MenuItem, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material'
 import Layout from '../components/Layout'
 import SessionReceipt from '../components/SessionReceipt'
+import StaffActionDialog from '../components/StaffActionDialog'
 import { useAuth } from '../context/AuthContext'
 import { getErrorMessage, sessionAPI } from '../services/api'
 import { formatParkingTime } from '../utils/reservationTime'
@@ -18,6 +19,7 @@ export default function SessionHistory() {
   const [selected, setSelected] = useState(null), [fee, setFee] = useState(null), [detailError, setDetailError] = useState('')
   const [detailLoading, setDetailLoading] = useState(false), [dialogOpen, setDialogOpen] = useState(false)
   const [method, setMethod] = useState('CASH'), [confirmed, setConfirmed] = useState(false), [saving, setSaving] = useState(false)
+  const [correction, setCorrection] = useState(null)
   const revision = useRef(0), detailRevision = useRef(0), locked = useRef(false), pending = useRef(null)
   const load = useCallback(async () => {
     const version = ++revision.current
@@ -71,6 +73,7 @@ export default function SessionHistory() {
       <Typography variant="h5" sx={{ fontWeight: 700 }}>{staff ? 'Xe ra và thu tiền' : 'Lịch sử gửi xe'}</Typography>
       <Typography>{staff ? 'Chỉ hiển thị lượt gửi trong bãi được phân công.' : 'Lượt gửi của bạn và phiếu thu sau khi thanh toán.'} Tự tải lại mỗi 30 giây.</Typography>
     </Box>
+    {staff && <Alert severity="info" sx={{ mb: 2 }}>Biển số nhập sai của lượt xe vãng lai chỉ sửa được trong 5 phút đầu khi lượt gửi còn mở. Mỗi lần sửa phải đối chiếu xe thực tế và ghi lý do.</Alert>}
     {notice && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice('')}>{notice}</Alert>}
     {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
     <Box component="form" onSubmit={e => { e.preventDefault(); setPage(1); setFilters({ ...filters, query: query.trim() }) }} sx={{ mb: 3 }}>
@@ -89,7 +92,9 @@ export default function SessionHistory() {
         <TableCell>{row.parkingLotName}<Typography variant="body2">{row.zoneName} · {row.slotCode}</Typography></TableCell>
         <TableCell>{formatParkingTime(row.checkInTime)}</TableCell>
         <TableCell><Chip label={row.status === 'OPEN' ? 'Đang gửi' : 'Đã kết thúc'} color={row.status === 'OPEN' ? 'info' : 'success'} size="small" />{row.isOverstay && <Typography variant="caption" sx={{ display: 'block', color: 'error.main' }}>Quá giờ dự kiến</Typography>}</TableCell>
-        <TableCell><Button onClick={() => { setMethod('CASH'); open(row.id) }}>{row.status === 'COMPLETED' ? 'Xem phiếu thu' : staff ? 'Xem phí và xe ra' : 'Xem phí'}</Button></TableCell>
+        <TableCell><Stack sx={{ alignItems: 'flex-start' }}><Button onClick={() => { setMethod('CASH'); open(row.id) }}>{row.status === 'COMPLETED' ? 'Xem phiếu thu' : staff ? 'Xem phí và xe ra' : 'Xem phí'}</Button>
+          {staff && row.canCorrectPlate && <Button color="warning" onClick={() => setCorrection({ kind: 'plate', id: row.id, code: row.sessionCode, plateNumber: row.plateNumber, deadline: row.plateCorrectionDeadline })}>Sửa biển số</Button>}
+        </Stack></TableCell>
       </TableRow>)}</TableBody>
     </Table></TableContainer></Card>
     <Stack direction="row" sx={{ justifyContent: 'flex-end', alignItems: 'center', gap: 2, mt: 2, flexWrap: 'wrap' }}>
@@ -114,5 +119,8 @@ export default function SessionHistory() {
         {staff && selected?.status === 'OPEN' && fee && <Button variant="contained" color="error" disabled={saving || !confirmed || detailLoading} onClick={checkout}>{saving ? 'Đang xác nhận…' : 'Xác nhận thu tiền và xe ra'}</Button>}
       </DialogActions>
     </Dialog>
+    {staff && <StaffActionDialog action={correction} onClose={() => setCorrection(null)} onSuccess={async response => {
+      setCorrection(null); setNotice(`Đã sửa biển số ${response.oldPlate} thành ${response.newPlate}.`); await load()
+    }} />}
   </Layout>
 }
