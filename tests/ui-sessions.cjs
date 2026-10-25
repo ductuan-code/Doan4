@@ -4,19 +4,24 @@ const { chromium } = require(require('node:path').join(process.argv[2], 'playwri
 const { randomUUID } = require('node:crypto');
 const { spawnSync } = require('node:child_process');
 const assert = require('node:assert/strict');
+const database = process.env.PARKING_TEST_DATABASE || 'ParkingLotOnline';
+if (process.env.PARKING_TEST_DATABASE) {
+  assert.match(database, /^ParkingAdminVerify_[a-f0-9]{12}$/);
+  assert.match(process.env.PARKING_TEST_UI, /^http:\/\/127\.0\.0\.1:\d+$/);
+}
 const tag = randomUUID().replaceAll('-', '').slice(0, 10), lotName = `session-ui-${tag}`;
 const password = 'SessionUi123!', accounts = [];
 let browser, page;
 function sql(statement) {
   const settings = 'SET NOCOUNT ON; SET QUOTED_IDENTIFIER ON; SET ANSI_NULLS ON; SET ANSI_PADDING ON; SET ANSI_WARNINGS ON; SET ARITHABORT ON; SET CONCAT_NULL_YIELDS_NULL ON; SET NUMERIC_ROUNDABORT OFF; SET XACT_ABORT ON; ';
-  const r = spawnSync('sqlcmd', ['-S','localhost','-E','-C','-d','ParkingLotOnline','-b','-l','5','-Q',settings + statement], { encoding: 'utf8' });
+  const r = spawnSync(process.env.PARKING_TEST_SQLCMD || 'sqlcmd', ['-S','localhost','-E','-C','-d',database,'-b','-l','5','-Q',settings + statement], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stdout + r.stderr);
 }
 async function json(response, status = 200) { assert.equal(response.status(), status, await response.text()); return response.json(); }
 (async () => {
   try { browser = await chromium.launch({ headless: true }); }
   catch { browser = await chromium.launch({ headless: true, channel: 'msedge' }); }
-  const context = await browser.newContext({ baseURL: 'http://127.0.0.1:3000', viewport: { width: 1440, height: 1100 }, timezoneId: 'UTC' });
+  const context = await browser.newContext({ baseURL: process.env.PARKING_TEST_UI || 'http://127.0.0.1:3000', viewport: { width: 1440, height: 1100 }, timezoneId: 'UTC' });
   for (let n = 0; n < 2; n++) {
     const result = await json(await context.request.post('/api/auth/register', { data: { name: 'Kiểm tra xe vào ra', email: `${lotName}-${n}@parking.test`, password } }), 201);
     accounts.push(result.id);

@@ -2,6 +2,8 @@
 import concurrent.futures
 import datetime as dt
 import json
+import os
+import re
 import subprocess
 import threading
 import urllib.error
@@ -9,7 +11,11 @@ import urllib.parse
 import urllib.request
 import uuid
 
-BASE = 'http://localhost:5143/api'
+BASE = os.environ.get('PARKING_TEST_API', 'http://localhost:5143/api')
+DATABASE = os.environ.get('PARKING_TEST_DATABASE', 'ParkingLotOnline')
+if 'PARKING_TEST_DATABASE' in os.environ:
+    assert re.fullmatch(r'ParkingAdminVerify_[a-f0-9]{12}', DATABASE), 'Invalid disposable database'
+    assert BASE.startswith('http://127.0.0.1:')
 TAG = uuid.uuid4().hex[:10]
 PREFIX = 'session-check-' + TAG
 PASSWORD = 'SessionTest123!'
@@ -19,7 +25,7 @@ SETTINGS = ('SET NOCOUNT ON; SET QUOTED_IDENTIFIER ON; SET ANSI_NULLS ON; SET AN
             'SET ANSI_WARNINGS ON; SET ARITHABORT ON; SET CONCAT_NULL_YIELDS_NULL ON; SET NUMERIC_ROUNDABORT OFF; SET XACT_ABORT ON; ')
 
 def sql(statement):
-    result = subprocess.run(['sqlcmd', '-S', 'localhost', '-E', '-C', '-d', 'ParkingLotOnline', '-b', '-l', '5', '-h', '-1', '-W', '-Q', SETTINGS + statement], capture_output=True, text=True, timeout=30)
+    result = subprocess.run([os.environ.get('PARKING_TEST_SQLCMD', 'sqlcmd'), '-S', 'localhost', '-E', '-C', '-d', DATABASE, '-b', '-l', '5', '-h', '-1', '-W', '-Q', SETTINGS + statement], capture_output=True, text=True, timeout=30)
     assert result.returncode == 0, result.stdout + result.stderr
     return result.stdout.strip()
 
