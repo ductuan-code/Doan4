@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Alert, Box, Button, Card, Checkbox, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, MenuItem, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material'
@@ -69,14 +70,12 @@ export default function SessionHistory() {
   }
   const close = () => { if (!saving) { detailRevision.current++; setDialogOpen(false); setSelected(null); setFee(null) } }
   return <Layout>
-    <Box sx={{ background: staff ? 'linear-gradient(135deg, #dc2626, #f87171)' : 'linear-gradient(135deg, #2563eb, #60a5fa)', borderRadius: 3, p: 3, mb: 3, color: 'white' }}>
-      <Typography variant="h5" sx={{ fontWeight: 700 }}>{staff ? 'Xe ra và thu tiền' : 'Lịch sử gửi xe'}</Typography>
-      <Typography>{staff ? 'Chỉ hiển thị lượt gửi trong bãi được phân công.' : 'Lượt gửi của bạn và phiếu thu sau khi thanh toán.'} Tự tải lại mỗi 30 giây.</Typography>
-    </Box>
+    <PageHeader title={staff ? 'Xe ra và thu tiền' : 'Lịch sử gửi xe'} eyebrow={staff ? 'Vận hành bãi' : 'Hành trình của bạn'}
+      description={`${staff ? 'Chỉ hiển thị lượt gửi trong bãi được phân công.' : 'Lượt gửi của bạn và phiếu thu sau khi thanh toán.'} Tự tải lại mỗi 30 giây.`} />
     {staff && <Alert severity="info" sx={{ mb: 2 }}>Biển số nhập sai của lượt xe vãng lai chỉ sửa được trong 5 phút đầu khi lượt gửi còn mở. Mỗi lần sửa phải đối chiếu xe thực tế và ghi lý do.</Alert>}
     {notice && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice('')}>{notice}</Alert>}
     {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-    <Box component="form" onSubmit={e => { e.preventDefault(); setPage(1); setFilters({ ...filters, query: query.trim() }) }} sx={{ mb: 3 }}>
+    <Box component="form" onSubmit={e => { e.preventDefault(); setPage(1); setFilters({ ...filters, query: query.trim() }) }} sx={{ mb: 3, p: { xs: 2, sm: 2.5 }, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 3 }}>
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
         <TextField label="Biển số hoặc mã phiên" value={query} onChange={e => setQuery(e.target.value)} slotProps={{ htmlInput: { maxLength: 40 } }} sx={{ flex: 1 }} />
         <TextField select label="Trạng thái" value={filters.status} onChange={e => { setPage(1); setFilters({ ...filters, status: e.target.value }) }} sx={{ minWidth: 180 }}>
@@ -86,7 +85,7 @@ export default function SessionHistory() {
       </Stack>
     </Box>
     <Card sx={{ borderRadius: 3 }}><TableContainer><Table>
-      <TableHead><TableRow sx={{ bgcolor: '#f8faff' }}>{['Mã phiên', 'Biển số', 'Bãi / vị trí', 'Giờ vào', 'Trạng thái', 'Thao tác'].map(label => <TableCell key={label} sx={{ fontWeight: 700 }}>{label}</TableCell>)}</TableRow></TableHead>
+      <TableHead><TableRow sx={{ bgcolor: '#f7f9fa' }}>{['Mã phiên', 'Biển số', 'Bãi / vị trí', 'Giờ vào', 'Trạng thái', 'Thao tác'].map(label => <TableCell key={label} sx={{ fontWeight: 700 }}>{label}</TableCell>)}</TableRow></TableHead>
       <TableBody>{loading ? <TableRow><TableCell colSpan={6} align="center">Đang tải lượt gửi xe…</TableCell></TableRow> : !rows.length ? <TableRow><TableCell colSpan={6} align="center">{error ? 'Chưa tải được dữ liệu.' : 'Không có lượt gửi xe phù hợp.'}</TableCell></TableRow> : rows.map(row => <TableRow key={row.id}>
         <TableCell sx={{ maxWidth: 190, overflowWrap: 'anywhere' }}>{row.sessionCode}</TableCell><TableCell>{row.plateNumber}</TableCell>
         <TableCell>{row.parkingLotName}<Typography variant="body2">{row.zoneName} · {row.slotCode}</Typography></TableCell>

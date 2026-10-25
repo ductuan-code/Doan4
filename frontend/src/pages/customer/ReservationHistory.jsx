@@ -1,3 +1,4 @@
+import PageHeader from '../../components/PageHeader'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Alert, Box, Button, Card, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
@@ -54,14 +55,12 @@ export default function ReservationHistory() {
     finally { savingRef.current = false; setSaving(false) }
   }
   return <Layout>
-    <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', alignItems: { sm: 'center' }, gap: 2, mb: 3, p: 3, borderRadius: 3, color: 'white', background: 'linear-gradient(135deg, #7c3aed, #a78bfa)' }}>
-      <Box><Typography variant="h5" sx={{ fontWeight: 700 }}>Lịch sử đặt chỗ</Typography><Typography sx={{ opacity: 0.9 }}>Thời gian hiển thị theo giờ Việt Nam · tự cập nhật mỗi 30 giây.</Typography></Box>
-      <Button component={Link} to="/customer/search" variant="contained" sx={{ flexShrink: 0, bgcolor: 'white', color: '#7c3aed', '&:hover': { bgcolor: '#faf5ff' } }}>Đặt chỗ mới</Button>
-    </Stack>
+    <PageHeader title="Lịch sử đặt chỗ" eyebrow="Hành trình của bạn" description="Thời gian hiển thị theo giờ Việt Nam · tự cập nhật mỗi 30 giây."
+      action={<Button component={Link} to="/customer/search" variant="contained">Đặt chỗ mới</Button>} />
     {notice && <Alert severity="success" onClose={() => setNotice('')} sx={{ mb: 2 }}>{notice}</Alert>}
     {error && <Alert severity="error" sx={{ mb: 2 }}>{error}<Button onClick={load} disabled={loading}>Tải lại</Button></Alert>}
     <Card sx={{ borderRadius: 3 }}><TableContainer><Table>
-      <TableHead><TableRow sx={{ bgcolor: '#faf5ff' }}>{['Mã đặt chỗ', 'Bãi / vị trí', 'Phương tiện', 'Thời gian', 'Trạng thái', 'Thao tác'].map(label => <TableCell key={label} sx={{ fontWeight: 700, color: '#7c3aed' }}>{label}</TableCell>)}</TableRow></TableHead>
+      <TableHead><TableRow sx={{ bgcolor: '#f1f6f8' }}>{['Mã đặt chỗ', 'Bãi / vị trí', 'Phương tiện', 'Thời gian', 'Trạng thái', 'Thao tác'].map(label => <TableCell key={label} sx={{ fontWeight: 700, color: '#386989' }}>{label}</TableCell>)}</TableRow></TableHead>
       <TableBody>
         {loading ? <TableRow><TableCell colSpan={6} align="center">Đang tải lịch đặt…</TableCell></TableRow> : !rows.length ? <TableRow><TableCell colSpan={6} align="center">{error ? 'Chưa tải được dữ liệu.' : page === 1 ? 'Chưa có lượt đặt chỗ nào' : 'Không có lượt đặt ở trang này.'}</TableCell></TableRow> : rows.map(row => {
           const [label, color] = statuses[row.status] || [row.status, 'default']

@@ -1,3 +1,4 @@
+import PageHeader from '../../components/PageHeader'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Alert, Box, Button, Card, CardContent, Chip, CircularProgress, MenuItem, Stack, Step, StepLabel, Stepper, TextField, Typography } from '@mui/material'
@@ -78,12 +79,12 @@ export default function SearchParking() {
   const lot = lots.find(l => l.id === search?.lotId)
   const vehicle = vehicles.find(v => v.id === search?.params.vehicleId)
   return <Layout>
-    <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>Tìm bãi đỗ xe</Typography>
+    <PageHeader title="Tìm bãi đỗ xe" eyebrow="Đặt chỗ trực tuyến" description="Chọn phương tiện và thời gian. Chúng tôi sẽ tìm vị trí phù hợp với chuyến đi của bạn." />
     <Card sx={{ borderRadius: 3, mb: 3 }}><CardContent>
-      <Stepper activeStep={step}>{['Chọn xe, bãi và thời gian', 'Chọn vị trí', 'Xác nhận'].map(label => <Step key={label}><StepLabel>{label}</StepLabel></Step>)}</Stepper>
+      <Stepper activeStep={step} alternativeLabel sx={{ '& .MuiStepLabel-label': { fontSize: { xs: 11, sm: 13 } }, '& .MuiStepConnector-line': { borderColor: '#d6e5df' } }}>{['Chọn xe, bãi và thời gian', 'Chọn vị trí', 'Xác nhận'].map(label => <Step key={label}><StepLabel>{label}</StepLabel></Step>)}</Stepper>
     </CardContent></Card>
     {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-    {loading ? <CircularProgress aria-label="Đang tải bãi và xe" /> : step === 0 ? <Card sx={{ borderRadius: 3 }}><CardContent>
+    {loading ? <CircularProgress aria-label="Đang tải bãi và xe" /> : step === 0 ? <Card sx={{ borderRadius: 3, maxWidth: 820, mx: 'auto' }}><CardContent>
       {!vehicles.length || !lots.length ? <Alert severity="info">
         {!vehicles.length ? <>Bạn cần thêm phương tiện đang hoạt động trước khi đặt chỗ. <Link to="/customer/vehicles">Quản lý phương tiện</Link></> : 'Chưa có bãi đang hoạt động.'}
       </Alert> : <Box component="form" onSubmit={find}>
