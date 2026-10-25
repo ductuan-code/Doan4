@@ -5,6 +5,7 @@ import Layout from '../../components/Layout'
 import { getErrorMessage, sessionAPI } from '../../services/api'
 import { formatParkingTime } from '../../utils/reservationTime'
 import { formatMoney } from '../../components/SessionReceipt'
+import StaffActionDialog from '../../components/StaffActionDialog'
 
 export default function CheckIn() {
   const [mode, setMode] = useState('reservation')
@@ -18,6 +19,7 @@ export default function CheckIn() {
   const [looking, setLooking] = useState(false)
   const [form, setForm] = useState({ plateNumber: '', vehicleType: 'MOTORBIKE', slotId: '', reason: '', agreed: false })
   const [saving, setSaving] = useState(false)
+  const [staffAction, setStaffAction] = useState(null), [notice, setNotice] = useState('')
   const pending = useRef(null), locked = useRef(false), revision = useRef(0), lookupRevision = useRef(0)
   const load = useCallback(async () => {
     const version = ++revision.current
@@ -33,7 +35,7 @@ export default function CheckIn() {
   }, [load])
   const lookup = async event => {
     event.preventDefault(); const version = ++lookupRevision.current
-    setLooking(true); setError(''); setResult(null); setReservation(null)
+    setLooking(true); setError(''); setResult(null); setNotice(''); setReservation(null)
     try {
       const { data } = await sessionAPI.findReservation(code.trim().toUpperCase())
       if (version === lookupRevision.current) {
@@ -41,6 +43,23 @@ export default function CheckIn() {
       }
     } catch (err) { if (version === lookupRevision.current) setError(getErrorMessage(err)) }
     finally { if (version === lookupRevision.current) setLooking(false) }
+  }
+  const refreshReservation = async currentCode => {
+    const version = ++lookupRevision.current
+    setLooking(true); setReservation(null)
+    try {
+      const { data } = await sessionAPI.findReservation(currentCode)
+      if (version === lookupRevision.current) setReservation(data)
+    } catch (err) { if (version === lookupRevision.current) setError(getErrorMessage(err)) }
+    finally { if (version === lookupRevision.current) setLooking(false) }
+  }
+  const issueSaved = async response => {
+    const currentCode = reservation.reservationCode
+    setStaffAction(null)
+    setError('')
+    setNotice(response.status === 'UNFULFILLED' ? 'Đã ghi nhận không phục vụ được. Lịch sử và lý do được giữ lại.' : 'Đã ghi nhận khách đến gặp sự cố. Hãy đối chiếu hạn xử lý bên dưới.')
+    await refreshReservation(currentCode)
+    await load()
   }
   const type = mode === 'reservation' ? reservation?.vehicleType : form.vehicleType
   const choices = slots.filter(s => s.vehicleType === type && s.acceptsReservations === (mode === 'reservation'))
@@ -59,7 +78,13 @@ export default function CheckIn() {
       setResult(received); pending.current = null; setReservation(null); setCode('')
       setForm(previous => ({ ...previous, plateNumber: '', slotId: '', reason: '', agreed: false }))
       await load()
-    } catch (err) { setError(getErrorMessage(err)); if (err.response?.status === 409) await load() }
+    } catch (err) {
+      setError(getErrorMessage(err))
+      if (err.response?.status === 409) {
+        await load()
+        if (mode === 'reservation') await refreshReservation(data.reservationCode)
+      }
+    }
     finally { locked.current = false; setSaving(false) }
   }
   return <Layout>
@@ -69,6 +94,7 @@ export default function CheckIn() {
     </Box>
     {loadError && <Alert severity="error" sx={{ mb: 2 }}>{loadError}<Button onClick={load}>Tải lại vị trí</Button></Alert>}
     {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+    {notice && <Alert severity="success" sx={{ mb: 2 }}>{notice}</Alert>}
     {result && <Alert severity="success" sx={{ mb: 2 }}>Đã nhận xe! Mã phiên: {result.sessionCode}. Đơn giá: {formatMoney(result.appliedPricePerHour)}/giờ. <Link to={`/staff/checkout?query=${result.sessionCode}`}>Xem lượt gửi xe</Link></Alert>}
     <Card sx={{ borderRadius: 3, maxWidth: 760, mx: 'auto' }}><CardContent sx={{ p: { xs: 2, sm: 4 } }}>
       <ToggleButtonGroup value={mode} exclusive fullWidth disabled={saving || looking} onChange={(_, value) => {
@@ -87,6 +113,18 @@ export default function CheckIn() {
         {reservation.plateNumber} · {reservation.parkingLotName} · {reservation.slotCode}<br />
         Dự kiến: {formatParkingTime(reservation.startTime)} → {formatParkingTime(reservation.endTime)} (giờ Việt Nam). Trạng thái: {reservation.status}.
       </Alert>}
+      {reservation?.serviceIssueAt && <Alert severity={reservation.status === 'CONFIRMED' ? 'warning' : 'info'} sx={{ mb: 2 }}>
+        Khách đến gặp sự cố: {formatParkingTime(reservation.serviceIssueAt)}.<br />
+        Hạn giải quyết: {formatParkingTime(reservation.resolutionDeadline)}.<br />Lý do: {reservation.issueReason}
+        {reservation.resolvedAt && <Typography variant="body2">Đã kết thúc xử lý: {formatParkingTime(reservation.resolvedAt)}.</Typography>}
+      </Alert>}
+      {reservation && <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap', mb: 2 }}>
+        {reservation.status === 'CONFIRMED' && <>
+          <Button color="warning" disabled={saving || looking || !reservation.canRecordIssue} onClick={() => setStaffAction({ kind: 'issue', id: reservation.id, code: reservation.reservationCode, plateNumber: reservation.plateNumber, deadline: reservation.expiresAt })}>Ghi nhận sự cố</Button>
+          <Button color="error" disabled={saving || looking || !reservation.canMarkUnfulfilled} onClick={() => setStaffAction({ kind: 'unfulfilled', id: reservation.id, code: reservation.reservationCode, plateNumber: reservation.plateNumber, deadline: reservation.resolutionDeadline ?? reservation.expiresAt })}>Không phục vụ được</Button>
+        </>}
+        <Button disabled={saving || looking} onClick={() => refreshReservation(reservation.reservationCode)}>Cập nhật lượt đặt</Button>
+      </Stack>}
       {(mode === 'walkin' || reservation?.status === 'CONFIRMED') && <Box component="form" onSubmit={submit}>
         <Stack spacing={2}>
           {mode === 'walkin' && <>
@@ -106,12 +144,13 @@ export default function CheckIn() {
             <TextField required label="Lý do đổi vị trí" value={form.reason} disabled={saving} slotProps={{ htmlInput: { maxLength: 1000 } }} onChange={e => setForm({ ...form, reason: e.target.value })} />
             <FormControlLabel control={<Checkbox checked={form.agreed} disabled={saving} onChange={e => setForm({ ...form, agreed: e.target.checked })} />} label="Khách đã đồng ý đổi vị trí" />
           </>}
-          <Alert severity="info">Lượt đặt được nhận sớm tối đa 15 phút, trước hạn no-show. Server kiểm tra lại vị trí và thời gian khi nhận xe.</Alert>
+          <Alert severity="info">Lượt đặt được nhận sớm tối đa 15 phút, trước hạn no-show hoặc trước hạn xử lý sự cố đã ghi nhận. Hệ thống kiểm tra lại vị trí và thời gian khi nhận xe.</Alert>
           <Button type="submit" variant="contained" color="success" disabled={saving || looking || loading || Boolean(loadError) || !form.slotId || (replacement && (!form.agreed || !form.reason.trim()))}>{saving ? 'Đang nhận xe…' : 'Xác nhận xe vào'}</Button>
           <Button disabled={saving} onClick={load}>Cập nhật vị trí</Button>
         </Stack>
       </Box>}
       {loading && <Typography>Đang tải vị trí…</Typography>}
     </CardContent></Card>
+    <StaffActionDialog action={staffAction} onClose={() => setStaffAction(null)} onSuccess={issueSaved} />
   </Layout>
 }

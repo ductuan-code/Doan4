@@ -70,7 +70,11 @@ export default function ReservationHistory() {
             <TableCell>{row.parkingLotName}<Typography variant="body2" sx={{ color: 'text.secondary' }}>{row.zoneName} · {row.slotCode}</Typography></TableCell>
             <TableCell>{row.plateNumber}<Typography variant="body2">{row.vehicleType === 'CAR' ? 'Ô tô' : 'Xe máy'}</Typography></TableCell>
             <TableCell><Typography variant="body2">{formatParkingTime(row.startTime)}</Typography><Typography variant="body2">→ {formatParkingTime(row.endTime)}</Typography></TableCell>
-            <TableCell><Chip label={label} color={color} size="small" /></TableCell>
+            <TableCell sx={{ maxWidth: 300, overflowWrap: 'anywhere' }}><Chip label={label} color={color} size="small" />
+              {row.serviceIssueAt && <Typography variant="body2" sx={{ mt: 1 }}>Đã ghi nhận sự cố lúc {formatParkingTime(row.serviceIssueAt)}.{row.status === 'CONFIRMED' && ` Hạn xử lý: ${formatParkingTime(row.resolutionDeadline)}.`}</Typography>}
+              {row.issueReason && <Typography variant="body2">Lý do: {row.issueReason}</Typography>}
+              {row.resolvedAt && <Typography variant="caption">Kết thúc xử lý: {formatParkingTime(row.resolvedAt)}</Typography>}
+            </TableCell>
             <TableCell>{row.canCancel && Date.now() < Date.parse(row.startTime) && <Button color="error" disabled={saving} onClick={() => { setSelected(row); setError('') }}>Hủy</Button>}</TableCell>
           </TableRow>
         })}
