@@ -1,3 +1,4 @@
+import PageHeader from '../../components/PageHeader'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Alert, Box, Button, Card, CardContent, Checkbox, FormControlLabel, MenuItem, Stack, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
@@ -88,10 +89,7 @@ export default function CheckIn() {
     finally { locked.current = false; setSaving(false) }
   }
   return <Layout>
-    <Box sx={{ background: 'linear-gradient(135deg, #059669, #34d399)', borderRadius: 3, p: 3, mb: 3, color: 'white' }}>
-      <Typography variant="h5" sx={{ fontWeight: 700 }}>Nhận xe vào bãi</Typography>
-      <Typography>{slots[0]?.parkingLotName || 'Bãi được phân công'} · Kiểm tra xe thực tế trước khi xác nhận.</Typography>
-    </Box>
+    <PageHeader title="Nhận xe vào bãi" eyebrow="Vận hành bãi" description={`${slots[0]?.parkingLotName || 'Bãi được phân công'} · Kiểm tra xe thực tế trước khi xác nhận.`} />
     {loadError && <Alert severity="error" sx={{ mb: 2 }}>{loadError}<Button onClick={load}>Tải lại vị trí</Button></Alert>}
     {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
     {notice && <Alert severity="success" sx={{ mb: 2 }}>{notice}</Alert>}

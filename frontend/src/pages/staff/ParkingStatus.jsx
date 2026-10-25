@@ -1,3 +1,4 @@
+import PageHeader from '../../components/PageHeader'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Alert, Box, Button, Card, Chip, MenuItem, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material'
@@ -45,11 +46,7 @@ export default function ParkingStatus() {
     <MenuItem value="all">Tất cả</MenuItem>{options.map(([value, title]) => <MenuItem key={value} value={value}>{title}</MenuItem>)}
   </TextField>
   return <Layout>
-    <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 2, justifyContent: 'space-between', mb: 2 }}>
-      <Box><Typography variant="h4">Trạng thái bãi và bảo trì</Typography>
-        <Typography sx={{ color: 'text.secondary', mt: 1 }}>{slots[0]?.parkingLotName ?? 'Bãi được phân công'} · Tự cập nhật mỗi 30 giây</Typography></Box>
-      <Button variant="outlined" disabled={loading} onClick={load}>Làm mới vị trí</Button>
-    </Stack>
+    <PageHeader title={'Trạng thái bãi và bảo trì'} description={`${slots[0]?.parkingLotName ?? 'Bãi được phân công'} · Tự cập nhật mỗi 30 giây`} eyebrow="Vận hành bãi" action={<Button variant="outlined" disabled={loading} onClick={load}>Làm mới vị trí</Button>} />
     {notice && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice('')}>{notice}</Alert>}
     {error && <Alert severity="error" sx={{ mb: 2 }}>{error} Nhấn Làm mới vị trí để thử lại.</Alert>}
     {loading && <Typography role="status" sx={{ mb: 2 }}>Đang tải trạng thái bãi…</Typography>}
@@ -60,7 +57,7 @@ export default function ParkingStatus() {
         { label: 'Vị trí còn đệm', value: active.filter(s => s.isInBuffer).length }
       ]} />
       <Alert severity="info" sx={{ mb: 2 }}>Số liệu trên tính các vị trí hoạt động trong toàn bãi. Chỗ chưa có xe có thể có lịch đặt; số lịch còn hiệu lực không đồng nghĩa với số xe đang gửi. Bảo trì không hủy lịch đặt hoặc xóa thời gian đệm.</Alert>
-      <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 2, flexWrap: 'wrap', mb: 2 }}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 2, flexWrap: 'wrap', mb: 2, p: 2.5, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 3, alignItems: { xs: 'stretch', sm: 'center' }, '& .MuiTextField-root': { flex: { sm: '1 1 180px' } } }}>
         {select('zone', 'Khu vực', zones)}
         {select('type', 'Loại xe', [['CAR', 'Ô tô'], ['MOTORBIKE', 'Xe máy']])}
         {select('group', 'Nhóm vị trí', [['reserved', 'Đặt trước'], ['walkin', 'Khách trực tiếp']])}
