@@ -71,7 +71,9 @@ public sealed partial class ParkingRepository
                 reader.GetString(reader.GetOrdinal("plate_number_snapshot")), reader.GetString(reader.GetOrdinal("vehicle_type_snapshot")),
                 start, Utc(reader, "end_time"), Utc(reader, "expires_at"), status, Utc(reader, "created_at"),
                 reader.IsDBNull(reader.GetOrdinal("cancelled_at")) ? null : Utc(reader, "cancelled_at"),
-                status == "CONFIRMED" && DateTime.UtcNow < start));
+                status == "CONFIRMED" && DateTime.UtcNow < start,
+                OptionalUtc(reader, "service_issue_at"), OptionalString(reader, "issue_reason"), OptionalUtc(reader, "resolution_deadline"),
+                OptionalUtc(reader, "resolved_at"), reader.GetBoolean(reader.GetOrdinal("can_record_issue")), reader.GetBoolean(reader.GetOrdinal("can_mark_unfulfilled"))));
         }
         return rows;
     }

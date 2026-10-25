@@ -37,5 +37,7 @@ public sealed record AvailableSlotView(int Id, string Code, int ZoneId, string Z
 public sealed record ReservationView(int Id, string ReservationCode, int VehicleId, int SlotId,
     int ParkingLotId, string ParkingLotName, string ZoneName, string SlotCode, string PlateNumber,
     string VehicleType, DateTime StartTime, DateTime EndTime, DateTime ExpiresAt,
-    string Status, DateTime CreatedAt, DateTime? CancelledAt, bool CanCancel);
+    string Status, DateTime CreatedAt, DateTime? CancelledAt, bool CanCancel,
+    DateTime? ServiceIssueAt, string? IssueReason, DateTime? ResolutionDeadline, DateTime? ResolvedAt,
+    bool CanRecordIssue, bool CanMarkUnfulfilled);
 public sealed record ReservationMutation(int Id, string Status, string? ReservationCode);

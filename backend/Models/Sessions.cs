@@ -22,7 +22,7 @@ public sealed record SessionView(int Id, string SessionCode, int? ReservationId,
     int? CustomerId, int SlotId, int ParkingLotId, string ParkingLotName, string ZoneName, string SlotCode,
     string PlateNumber, string VehicleType, DateTime CheckInTime, DateTime? CheckOutTime,
     decimal AppliedPricePerHour, int? BillableHours, decimal? TotalFee, string Status, bool IsOverstay,
-    int? PaymentId, decimal? PaidAmount, string? PaymentMethod, DateTime? PaidAt);
+    int? PaymentId, decimal? PaidAmount, string? PaymentMethod, DateTime? PaidAt, DateTime? PlateCorrectionDeadline, bool CanCorrectPlate);
 public sealed record SessionFeeView(int Id, string Status, decimal AppliedPricePerHour, int BillableHours,
     decimal Amount, DateTime CalculatedAt, bool IsEstimate);
 public sealed record CheckInResult(int Id, string SessionCode, string Status, DateTime CheckInTime, int SlotId, decimal AppliedPricePerHour);

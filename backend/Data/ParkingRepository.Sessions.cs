@@ -53,7 +53,8 @@ public sealed partial class ParkingRepository
             r.GetInt32(r.GetOrdinal("parking_lot_id")), r.GetString(r.GetOrdinal("parking_lot_name")), r.GetString(r.GetOrdinal("zone_name")), r.GetString(r.GetOrdinal("slot_code")),
             r.GetString(r.GetOrdinal("plate_number_snapshot")), r.GetString(r.GetOrdinal("vehicle_type_snapshot")), Utc(r, "check_in_time"), OptionalUtc(r, "check_out_time"),
             r.GetDecimal(r.GetOrdinal("applied_price_per_hour")), OptionalInt(r, "billable_hours"), OptionalDecimal(r, "total_fee"), r.GetString(r.GetOrdinal("status")),
-            r.GetBoolean(r.GetOrdinal("is_overstay")), OptionalInt(r, "payment_id"), OptionalDecimal(r, "paid_amount"), OptionalString(r, "payment_method"), OptionalUtc(r, "paid_at")));
+            r.GetBoolean(r.GetOrdinal("is_overstay")), OptionalInt(r, "payment_id"), OptionalDecimal(r, "paid_amount"), OptionalString(r, "payment_method"), OptionalUtc(r, "paid_at"),
+            OptionalUtc(r,"plate_correction_deadline"), r.GetBoolean(r.GetOrdinal("can_correct_plate"))));
         return rows;
     }
     public async Task<SessionFeeView> GetSessionFeeAsync(int actorId, int id, CancellationToken cancellation)
