@@ -19,6 +19,7 @@ import SessionHistory from './pages/SessionHistory'
 import StaffDashboard from './pages/staff/Dashboard'
 import CheckIn from './pages/staff/CheckIn'
 import CheckOut from './pages/staff/CheckOut'
+import ParkingStatus from './pages/staff/ParkingStatus'
 
 // Admin Pages
 import AdminDashboard from './pages/admin/Dashboard'
@@ -85,6 +86,7 @@ function App() {
             <Route path="/staff/dashboard" element={<StaffDashboard />} />
             <Route path="/staff/checkin" element={<CheckIn />} />
             <Route path="/staff/checkout" element={<CheckOut />} />
+            <Route path="/staff/parking-status" element={<ParkingStatus />} />
             </Route>
 
             <Route element={<ProtectedRoute roles={['Admin']} />}>

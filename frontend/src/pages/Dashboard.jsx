@@ -13,7 +13,7 @@ const shortcuts = {
   Admin: [['Bãi đỗ xe', 'Cấu hình bãi hoạt động', '/admin/parking-lots'], ['Khu vực', 'Phân loại xe và tầng', '/admin/zones'],
     ['Vị trí đỗ', 'Nhóm đặt trước, trực tiếp và bảo trì', '/admin/slots'], ['Bảng giá', 'Giá hiện hành và lịch sử', '/admin/pricing'],
     ['Tài khoản', 'Phân quyền và phân công bãi', '/admin/users'], ['Báo cáo', 'Tổng thu và lượt xe theo ngày, bãi', '/admin/reports']],
-  Staff: [['Nhận xe', 'Tra mã đặt hoặc nhận khách trực tiếp', '/staff/checkin'], ['Trả xe và thu tiền', 'Tính phí, xác nhận xe ra và phiếu thu', '/staff/checkout']],
+  Staff: [['Trạng thái bãi và bảo trì', 'Theo dõi từng vị trí và xử lý bảo trì', '/staff/parking-status'], ['Nhận xe', 'Tra mã đặt hoặc nhận khách trực tiếp', '/staff/checkin'], ['Trả xe và thu tiền', 'Tính phí, xác nhận xe ra và phiếu thu', '/staff/checkout']],
   Customer: [['Phương tiện', 'Thêm, sửa và ngừng sử dụng xe', '/customer/vehicles'], ['Tìm và đặt chỗ', 'Chọn xe, bãi và khung giờ', '/customer/search'],
     ['Lịch sử đặt chỗ', 'Theo dõi và hủy lịch của bạn', '/customer/history'], ['Lịch sử gửi xe', 'Xem lượt gửi và phiếu thu của bạn', '/customer/sessions']]
 }

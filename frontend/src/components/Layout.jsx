@@ -35,6 +35,7 @@ const menuItems = {
   ],
   Staff: [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/staff/dashboard' },
+    { text: 'Trạng thái bãi', icon: <GridViewIcon />, path: '/staff/parking-status' },
     { text: 'Check-in xe', icon: <LoginIcon />, path: '/staff/checkin' },
     { text: 'Check-out xe', icon: <LogoutOutlinedIcon />, path: '/staff/checkout' },
   ],
@@ -209,7 +210,7 @@ function Layout({ children }) {
 
       {/* Main content */}
       <Box component="main" sx={{ flexGrow: 1, minWidth: 0, p: { xs: 2, sm: 3 }, mt: { xs: 8, md: 0 }, bgcolor: '#f0f4ff', minHeight: '100vh' }}>
-        {!['/customer/vehicles', '/customer/search', '/customer/history', '/customer/sessions', '/customer/dashboard', '/staff/dashboard', '/admin/dashboard', '/admin/reports', '/staff/checkin', '/staff/checkout', '/admin/parking-lots', '/admin/zones', '/admin/slots', '/admin/pricing', '/admin/users'].includes(location.pathname) && (
+        {!['/customer/vehicles', '/customer/search', '/customer/history', '/customer/sessions', '/customer/dashboard', '/staff/dashboard', '/staff/parking-status', '/admin/dashboard', '/admin/reports', '/staff/checkin', '/staff/checkout', '/admin/parking-lots', '/admin/zones', '/admin/slots', '/admin/pricing', '/admin/users'].includes(location.pathname) && (
           <Alert severity="info" sx={{ mb: 2 }}>
             Màn hình đang hoàn thiện. Dữ liệu và thao tác tại đây hiện chỉ dùng để minh họa.
           </Alert>
