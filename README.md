@@ -1,6 +1,6 @@
 # Quản lý bãi đỗ xe trực tuyến
 
-## Tiến độ ngày 22/10/2026
+## Tiến độ ngày 25/10/2026
 
 Đã nối database SQL Server với backend ASP.NET Core và hoàn thành đăng ký, đăng nhập, phân quyền, phương tiện, tìm/đặt/hủy chỗ, nhận xe, xem phí, thu tiền và xác nhận xe ra. Khách hàng có lịch sử gửi xe và phiếu thu của mình. Admin quản lý bãi, khu vực, vị trí, bảo trì, phiên bản bảng giá và tài khoản bằng dữ liệu thật. Ba vai trò có dashboard theo phạm vi quyền; Admin xem báo cáo theo ngày Việt Nam và theo bãi.
 
@@ -25,6 +25,8 @@
 | Hiệu lực quyền | API đọc lại trạng thái, vai trò, bãi phân công ở mỗi yêu cầu; tự sửa tài khoản sẽ cập nhật phiên và điều hướng theo quyền mới |
 | Dashboard | SQL tổng hợp theo vai trò; tự làm mới mỗi 30 giây; tách chỗ chưa có xe, bảo trì, đệm và lượt đặt còn hiệu lực |
 | Báo cáo | Admin lọc ngày/bãi, xem biểu đồ thu và bảng tổng hợp ngày/bãi; tách tiền mặt/mô phỏng, giữ lịch sử bãi đã ngừng |
+| Sự cố phục vụ | Staff xác nhận khách đã đến, ghi lý do và hạn xử lý; check-in để giải quyết hoặc kết thúc UNFULFILLED; quá hạn được job xử lý, khách xem lý do trong lịch sử |
+| Sửa biển số walk-in | Staff sửa lỗi trong 5 phút đầu của phiên OPEN; đối chiếu xe và lý do bắt buộc; chống trùng biển số, giữ tài khoản/xe/giờ vào/giá |
 
 Các trang đã nối dữ liệu không hiển thị số liệu mẫu khi lỗi kết nối. Dashboard và báo cáo hiện phản ánh dữ liệu SQL thật. Chưa chỉnh các tệp báo cáo học phần trong giai đoạn tiếp tục phát triển ứng dụng này.
 
@@ -48,6 +50,12 @@ Bản dashboard/báo cáo bổ sung `usp_GetDashboard` và `usp_AdminDailyReport
 
 ```powershell
 sqlcmd -S localhost -d ParkingLotOnline -E -C -b -f 65001 -i scripts/sql/20261022_reports.sql
+```
+
+Bản xử lý sự cố ngày 25/10 bổ sung hạn xử lý và các cờ thao tác từ server cho lịch đặt/lượt gửi. **Máy hiện tại đã được cập nhật**, không cần chạy lại. Với database cũ trên máy khác, chạy migration sau **sau các migration ngày 22/10**; chỉ sửa ba procedure, không đổi bảng hoặc xóa giao dịch. Mục 1 của `sql.md` đã có nội dung mới nhất.
+
+```powershell
+sqlcmd -S localhost -d ParkingLotOnline -E -C -b -f 65001 -i scripts/sql/20261025_staff_exceptions.sql
 ```
 
 Mở hai cửa sổ PowerShell tại `C:\Code\doan4`:
@@ -155,6 +163,9 @@ Danh sách khả dụng là kết quả tại thời điểm tìm, không giữ 
 | PUT | `/api/admin/users/{id}` | Admin; sửa đủ thông tin, vai trò/phân công/trạng thái, bắt buộc `Idempotency-Key`; không nhận mật khẩu |
 | GET | `/api/dashboard` | Customer: tài khoản mình; Staff: bãi được phân công hiện tại; Admin: toàn hệ thống |
 | GET | `/api/admin/reports?fromDate=2026-10-01&toDate=2026-10-22&parkingLotId=1` | Admin; ngày bắt đầu và kết thúc đều được tính; bỏ parkingLotId để xem tất cả bãi |
+| POST | `/api/reservations/{id}/service-issue` | Staff đúng bãi; ghi khách đã đến gặp sự cố; bắt buộc lý do, xác nhận đối chiếu và Idempotency-Key |
+| POST | `/api/reservations/{id}/unfulfilled` | Staff đúng bãi; kết thúc không phục vụ được; cùng yêu cầu xác nhận/lý do/key |
+| PATCH | `/api/sessions/{id}/plate` | Staff đúng bãi; sửa biển số walk-in OPEN trong 5 phút đầu, bắt buộc lý do/đối chiếu/key |
 
 POST/PATCH phương tiện nhận đầy đủ trạng thái biểu mẫu để nội dung yêu cầu lặp ổn định:
 
@@ -217,6 +228,18 @@ Staff phải có đúng một bãi phân công đang hoạt động; Customer/Ad
 
 Mật khẩu lưu trong Users bằng ASP.NET Core Identity với salt ngẫu nhiên. Backend tạo thêm fingerprint PBKDF2 theo actor/key để yêu cầu tạo tài khoản có thể gửi lại dù hash Identity mỗi lần khác nhau. Thay mật khẩu nhưng dùng lại key cũ trả 409; không tạo user trùng. Mật khẩu/hash/fingerprint không trả ra API hoặc ghi trong audit; RequestRecord chỉ lưu hash nội dung và phản hồi không chứa mật khẩu. Chức năng đặt lại/đổi mật khẩu chưa thuộc bản quản lý tài khoản này. Không có API xóa vật lý tài khoản.
 
+## Xử lý sự cố và sửa biển số
+
+Tại **Check-in xe**, tra mã đặt rồi chọn **Ghi nhận sự cố** khi khách và xe đã đến, có trở ngại thực tế. Biểu mẫu yêu cầu lý do và xác nhận đã đối chiếu khách/xe. Gửi JSON `{ "reason": "Vị trí đang bảo trì, khách đã đến", "customerPresent": true }`. Không nhận thời điểm hay trạng thái từ client.
+
+Chỉ ghi sự cố cho lịch CONFIRMED từ 15 phút trước giờ bắt đầu đến trước expires_at. Sau khi ghi, hạn xử lý là mốc sớm hơn giữa service_issue_at + 15 phút và end_time, hiển thị theo giờ Việt Nam. Ghi lại bằng key mới không kéo dài hạn. Trong cửa sổ xử lý, Staff nhận xe tại vị trí phù hợp (đổi vị trí cần khách đồng ý), hoặc chọn **Không phục vụ được** với lý do; có thể ghi kết quả không phục vụ được ngay khi khách đến. UNFULFILLED không tạo Session/Payment. Không phục hồi lịch đã hết hạn.
+
+Tác vụ nền mặc định mỗi 60 giây kết thúc sự cố quá hạn bằng UNFULFILLED, ghi thời điểm và audit hệ thống. API đọc coi lịch đó hết hiệu lực ngay cả khi job chưa cập nhật. Lịch sử của khách hiển thị sự cố, lý do và thời điểm kết thúc nếu đã ghi nhận. `canRecordIssue`/`canMarkUnfulfilled` chỉ bật cho Staff đúng điều kiện; server kiểm tra lại dưới khóa transaction khi lưu.
+
+Tại **Check-out xe**, nút **Sửa biển số** xuất hiện cho lượt walk-in còn được sửa. PATCH nhận `{ "plateNumber": "51A-123.45", "reason": "Nhập thiếu một chữ số", "vehicleVerified": true }`. Chỉ sửa snapshot biển số của phiên OPEN, không có reservation, tối đa 5 phút sau giờ vào. Không đổi loại xe, tài khoản, phương tiện liên kết, giờ vào hoặc đơn giá. Nếu walk-in đã gắn Vehicle thì chỉ cho thay cách trình bày, giữ cùng biển số chuẩn hóa. Từ chối biển số đang có phiên OPEN hoặc lịch CONFIRMED còn hiệu lực ở bất kỳ bãi nào. Mỗi lần sửa ghi audit gồm biển cũ/mới, Staff và lý do.
+
+Cả ba thao tác dùng Idempotency-Key; mất phản hồi sau commit thì giữ nguyên key và nội dung để thử lại, kể cả đã qua hạn hoặc trạng thái đã đổi. Không lặp audit hoặc tạo thêm giao dịch. Phản hồi lỗi mạng không được coi là đã thành công; sau khi lưu thành công nhưng lỗi tải lại, giao diện giữ thông báo kết quả đã ghi và yêu cầu tra cứu lại dữ liệu.
+
 ## Dashboard và cách đọc báo cáo
 
 - `/dashboard` trả `role`, `scopeName`, `dateVn`, `generatedAt`, `summary`, `lots`. Timestamp có `Z`; ngày vận hành tính UTC+7 tại SQL Server.
@@ -248,6 +271,8 @@ Hai thủ tục mới đọc trong transaction với shared application lock cù
 - `tests/ui-users.cjs`: kiểm tra tạo/sửa/phân công/khóa/mở, lọc từ server, mất phản hồi khi tạo và sửa, lưu sau reload, Admin cuối cùng, tự hạ quyền và điều hướng, lỗi đọc dữ liệu và bố cục di động.
 - `tests/reports_integration.py`: 153 kiểm tra dashboard theo vai trò/chủ tài khoản/bãi, token cũ khi đổi phân công/khóa, lịch hết hiệu lực, chỗ bảo trì/đệm, tỷ lệ không có mẫu số, ranh giới ngày Việt Nam đến 100ns, năm nhuận, doanh thu theo paid_at, tiền mặt/mô phỏng, bãi đã ngừng và ngày rỗng; kiểm tra role backend không có SELECT bảng thanh toán riêng tư.
 - `tests/ui-reports.cjs`: ba dashboard, làm mới theo giao dịch thật, chọn ngày/bãi, preset ngày Việt Nam trong browser UTC, biểu đồ, số liệu 0, lỗi mạng, phản hồi cũ sau khi đổi bãi và bố cục di động.
+- `tests/operations_integration.py`: 144 kiểm tra quyền, điều kiện, audit và replay đồng thời; xử lý sau hạn no-show nhưng còn hạn sự cố; UNFULFILLED không tạo lượt/thu tiền; đua check-in/kết thúc; sửa biển số không đổi chủ/giá, chống trùng toàn hệ thống, đua với checkout và quan sát tác vụ nền thật kết thúc sự cố quá hạn.
+- `tests/ui-operations.cjs`: ghi sự cố, hạn xử lý, không phục vụ được, check-in giải quyết sự cố, lỗi khi quá hạn, sửa biển số, mất phản hồi sau commit, lưu sau reload, lịch sử khách và bố cục di động.
 
 Chạy lại kiểm tra sau khi mở cả backend và frontend:
 
@@ -267,8 +292,8 @@ dotnet build backend/ParkingLotAPI.csproj --no-restore
 python tests/run_admin_tests.py --node DUONG_DAN_NODE_EXE --node-modules DUONG_DAN_NODE_MODULES_CO_PLAYWRIGHT
 ```
 
-Bộ điều phối tự tạo `ParkingAdminVerify_<mã ngẫu nhiên>`, khởi tạo bằng mục 1 của `sql.md`, chạy lại migration tài khoản/báo cáo để kiểm tra, mở backend/frontend riêng ở các cổng trống, chạy kiểm thử bãi/giá, dashboard/báo cáo và tài khoản rồi dừng đúng tiến trình và xóa đúng database do nó tạo. Có thể chọn `--suite parking`, `--suite users` hoặc `--suite reports` khi chỉ cần kiểm tra một phần. Các bài kiểm thử từ chối tên database khác mẫu này. Không cần mở ứng dụng chính; Node ưu tiên PATH rồi runtime Codex nếu có, các tham số Node có thể bỏ qua trên máy hiện tại. Log và ảnh kiểm tra nằm trong `.work/`, không đưa lên Git.
+Bộ điều phối tự tạo `ParkingAdminVerify_<mã ngẫu nhiên>`, khởi tạo bằng mục 1 của `sql.md`, chạy lại các migration để kiểm tra, mở backend/frontend riêng ở các cổng trống, chạy kiểm thử bãi/giá, dashboard/báo cáo, sự cố, nhận/trả xe và tài khoản rồi dừng đúng tiến trình và xóa đúng database do nó tạo. Có thể chọn `--suite parking`, `--suite users`, `--suite reports`, `--suite operations` hoặc `--suite sessions` khi chỉ cần kiểm tra một phần. Các bài kiểm thử mới từ chối tên database khác mẫu này; các bài nhận/trả xe cũ cũng dùng database tạm khi chạy qua bộ điều phối. Không cần mở ứng dụng chính; Node ưu tiên PATH rồi runtime Codex nếu có, các tham số Node có thể bỏ qua trên máy hiện tại. Bài sự cố có thể đợi tối đa 70 giây để quan sát job thực tế. Log và ảnh kiểm tra nằm trong `.work/`, không đưa lên Git.
 
 ## Phần tiếp theo
 
-Ghi nhận sự cố phục vụ và sửa biển số walk-in hiện có thủ tục SQL, chưa có màn hình/API riêng; cần nối tiếp trước khi coi toàn bộ luồng ngoại lệ trong blueprint đã hoàn tất. Các chức năng nâng cao như xuất báo cáo thành tệp và tự đổi mật khẩu chưa thuộc bản này. Các tệp báo cáo học phần có thể cập nhật sau khi chốt các luồng nghiệp vụ còn lại.
+Các luồng sự cố phục vụ và sửa biển số đã có API/giao diện và kiểm thử. Tiếp theo nên rà soát các yêu cầu còn lại trong blueprint, chuẩn bị kịch bản demo và hoàn thiện báo cáo học phần. Các chức năng nâng cao như xuất báo cáo thành tệp, tự đổi mật khẩu và giao diện bảo trì riêng cho Staff chưa thuộc bản này; bảo trì qua giao diện hiện do Admin thực hiện.
