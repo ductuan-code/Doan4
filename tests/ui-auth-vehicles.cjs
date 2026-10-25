@@ -1,9 +1,14 @@
-// Browser integration checks against the running frontend/backend/SQL database.
-// node tests/ui-auth-vehicles.cjs <node_modules containing playwright>
+// Browser integration checks in the disposable database owned by run_admin_tests.py.
+// Run through: python tests/run_admin_tests.py --suite customer
 const { chromium } = require(require('node:path').join(process.argv[2], 'playwright'));
 const { randomUUID } = require('node:crypto');
 const { spawnSync } = require('node:child_process');
 const assert = require('node:assert/strict');
+const database = process.env.PARKING_TEST_DATABASE, ui = process.env.PARKING_TEST_UI;
+assert.match(database || '', /^ParkingAdminVerify_[a-f0-9]{12}$/);
+assert.match(ui || '', /^http:\/\/127\.0\.0\.1:\d+$/);
+const sqlcmd = process.env.PARKING_TEST_SQLCMD;
+assert(sqlcmd, 'Run through run_admin_tests.py --suite customer');
 const tag = randomUUID().replaceAll('-', '').slice(0, 10);
 const email = `ui-check-${tag}@parking.test`;
 const password = 'ParkingUi123!';
@@ -21,13 +26,13 @@ DELETE dbo.AuditLog WHERE actor_user_id=${userId};
 DELETE dbo.Vehicle WHERE user_id=${userId};
 DELETE dbo.Users WHERE id=${userId} AND normalized_email=N'${email}';
 COMMIT;`;
-  const result = spawnSync('sqlcmd', ['-S','localhost','-E','-C','-d','ParkingLotOnline','-b','-l','5','-Q',sql], { encoding: 'utf8' });
+  const result = spawnSync(sqlcmd, ['-S','localhost','-E','-C','-d',database,'-b','-l','5','-Q',sql], { encoding: 'utf8' });
   assert.equal(result.status, 0, result.stdout + result.stderr);
 }
 (async () => {
   try { browser = await chromium.launch({ headless: true }); }
   catch { browser = await chromium.launch({ headless: true, channel: 'msedge' }); }
-  const context = await browser.newContext({ baseURL: 'http://127.0.0.1:3000', viewport: { width: 1440, height: 1000 } });
+  const context = await browser.newContext({ baseURL: ui, viewport: { width: 1440, height: 1000 } });
   const page = await context.newPage();
   const runtimeErrors = [];
   page.on('pageerror', error => runtimeErrors.push(error.message));
@@ -37,10 +42,10 @@ COMMIT;`;
   await page.goto('/customer/vehicles');
   await page.waitForURL('**/login');
   await page.getByLabel('Email', { exact: false }).fill(email);
-  await page.getByLabel('Mật khẩu', { exact: false }).fill('wrong-password');
+  await page.getByLabel(/^Mật khẩu/).fill('wrong-password');
   await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
   await page.getByText('Email hoặc mật khẩu không đúng.', { exact: true }).waitFor();
-  await page.getByLabel('Mật khẩu', { exact: false }).fill(password);
+  await page.getByLabel(/^Mật khẩu/).fill(password);
   await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
   await page.waitForURL('**/customer/dashboard');
   await page.goto('/customer/vehicles');
@@ -65,7 +70,7 @@ COMMIT;`;
   page.once('dialog', event => event.accept());
   await row.getByRole('button', { name: 'Ngừng sử dụng', exact: true }).click();
   await page.getByText('Đã ngừng sử dụng', { exact: true }).waitFor();
-  await page.screenshot({ path: '.work/ui-vehicles.png', fullPage: true });
+  await page.screenshot({ path: '.work/ui-vehicles.png', fullPage: true, animations: 'disabled' });
   await page.goto('/admin/users');
   await page.waitForURL('**/customer/dashboard');
   await page.evaluate(() => localStorage.setItem('user', JSON.stringify({ role: 'Admin', name: 'Tampered' })));

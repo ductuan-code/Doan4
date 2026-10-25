@@ -45,7 +45,7 @@ COMMIT;`);
   page.on('pageerror', e => errors.push(e.message));
   await page.goto('/login');
   await page.getByLabel('Email', { exact: false }).fill(`${lotName}-1@parking.test`);
-  await page.getByLabel('Mật khẩu', { exact: false }).fill(password);
+  await page.getByLabel(/^Mật khẩu/).fill(password);
   await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
   await page.waitForURL('**/staff/dashboard');
   await page.goto('/staff/checkin');

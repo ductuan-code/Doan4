@@ -1,16 +1,21 @@
-// Real browser + SQL test, including a committed request whose response is lost.
-// node tests/ui-reservations.cjs <node_modules containing playwright>
+// Disposable browser + SQL test, including a committed request whose response is lost.
+// Run through: python tests/run_admin_tests.py --suite customer
 const { chromium } = require(require('node:path').join(process.argv[2], 'playwright'));
 const { randomUUID } = require('node:crypto');
 const { spawnSync } = require('node:child_process');
 const assert = require('node:assert/strict');
+const database = process.env.PARKING_TEST_DATABASE, ui = process.env.PARKING_TEST_UI;
+assert.match(database || '', /^ParkingAdminVerify_[a-f0-9]{12}$/);
+assert.match(ui || '', /^http:\/\/127\.0\.0\.1:\d+$/);
+const sqlcmd = process.env.PARKING_TEST_SQLCMD;
+assert(sqlcmd, 'Run through run_admin_tests.py --suite customer');
 const tag = randomUUID().replaceAll('-', '').slice(0, 10);
 const email = `booking-ui-${tag}@parking.test`, lotName = `booking-ui-${tag}`;
 const password = 'BookingUi123!', plate = `UIR${tag.toUpperCase()}`;
 let browser, userId, page;
 function sql(query) {
   const settings = 'SET NOCOUNT ON; SET QUOTED_IDENTIFIER ON; SET ANSI_NULLS ON; SET ANSI_PADDING ON; SET ANSI_WARNINGS ON; SET ARITHABORT ON; SET CONCAT_NULL_YIELDS_NULL ON; SET NUMERIC_ROUNDABORT OFF; SET XACT_ABORT ON; ';
-  const result = spawnSync('sqlcmd', ['-S','localhost','-E','-C','-d','ParkingLotOnline','-b','-l','5','-Q',settings + query], { encoding: 'utf8' });
+  const result = spawnSync(sqlcmd, ['-S','localhost','-E','-C','-d',database,'-b','-l','5','-Q',settings + query], { encoding: 'utf8' });
   assert.equal(result.status, 0, result.stdout + result.stderr);
 }
 async function json(response, status = 200) {
@@ -21,7 +26,7 @@ async function json(response, status = 200) {
   try { browser = await chromium.launch({ headless: true }); }
   catch { browser = await chromium.launch({ headless: true, channel: 'msedge' }); }
   // A browser outside Vietnam must still submit and display the selected Vietnam time.
-  const context = await browser.newContext({ baseURL: 'http://127.0.0.1:3000', timezoneId: 'UTC', viewport: { width: 1440, height: 1000 } });
+  const context = await browser.newContext({ baseURL: ui, timezoneId: 'UTC', viewport: { width: 1440, height: 1000 } });
   const user = await json(await context.request.post('/api/auth/register', { data: { name: 'Kiểm tra đặt chỗ', email, password } }), 201);
   userId = user.id;
   const login = await json(await context.request.post('/api/auth/login', { data: { email, password } }));
@@ -31,7 +36,7 @@ async function json(response, status = 200) {
   page.on('pageerror', e => errors.push(e.message));
   await page.goto('/login');
   await page.getByLabel('Email', { exact: false }).fill(email);
-  await page.getByLabel('Mật khẩu', { exact: false }).fill(password);
+  await page.getByLabel(/^Mật khẩu/).fill(password);
   await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
   await page.waitForURL('**/customer/dashboard');
   await page.goto('/customer/search');
@@ -99,7 +104,7 @@ COMMIT;`);
   await row.getByText('Đã hủy', { exact: true }).waitFor();
   await page.reload();
   await row.getByText('Đã hủy', { exact: true }).waitFor();
-  await page.screenshot({ path: '.work/ui-reservations.png', fullPage: true });
+  await page.screenshot({ path: '.work/ui-reservations.png', fullPage: true, animations: 'disabled' });
   // Errors must be shown explicitly; a failed history request must never reveal mock rows.
   await page.route('**/api/reservations/my?*', route => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ message: 'Lỗi kiểm thử kết nối' }) }));
   await page.getByRole('button', { name: 'Làm mới', exact: true }).click();
@@ -113,7 +118,7 @@ COMMIT;`);
   console.log('PASS: browser empty vehicles, active vehicle selection, actual search, 409 refresh, lost-response replay, UTC+7 in UTC browser, persisted history/cancellation, honest error/retry; no page errors.');
 })().catch(async error => {
   console.error(error);
-  if (page) { await page.screenshot({ path: '.work/ui-reservations-failure.png', fullPage: true }); console.error((await page.locator('body').innerText()).slice(0, 6000)); }
+  if (page) { await page.screenshot({ path: '.work/ui-reservations-failure.png', fullPage: true, animations: 'disabled' }); console.error((await page.locator('body').innerText()).slice(0, 6000)); }
   process.exitCode = 1;
 }).finally(async () => {
   if (browser) await browser.close();

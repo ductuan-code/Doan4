@@ -20,7 +20,7 @@ RUNTIME = Path.home() / '.cache/codex-runtimes/codex-primary-runtime/dependencie
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--node', default=shutil.which('node') or str(RUNTIME / 'bin/node.exe'))
 parser.add_argument('--node-modules', default=str(RUNTIME / 'node_modules'))
-parser.add_argument('--suite', choices=['parking', 'users', 'reports', 'maintenance', 'operations', 'sessions', 'all'], default='all')
+parser.add_argument('--suite', choices=['parking', 'users', 'reports', 'maintenance', 'operations', 'sessions', 'customer', 'design', 'all'], default='all')
 args = parser.parse_args()
 database = 'ParkingAdminVerify_' + uuid.uuid4().hex[:12]
 assert re.fullmatch(r'ParkingAdminVerify_[a-f0-9]{12}', database)
@@ -116,6 +116,11 @@ try:
     if args.suite in ['sessions', 'all']:
         run_test([sys.executable, str(ROOT / 'tests/sessions_integration.py')], env, 'session-api-tests', 120)
         run_test([args.node, str(ROOT / 'tests/ui-sessions.cjs'), args.node_modules], env, 'session-browser-tests', 180)
+    if args.suite in ['customer', 'all']:
+        run_test([args.node, str(ROOT / 'tests/ui-auth-vehicles.cjs'), args.node_modules], env, 'customer-vehicle-browser-tests', 180)
+        run_test([args.node, str(ROOT / 'tests/ui-reservations.cjs'), args.node_modules], env, 'customer-booking-browser-tests', 180)
+    if args.suite in ['design', 'all']:
+        run_test([args.node, str(ROOT / 'tests/ui-design.cjs'), args.node_modules], env, 'design-browser-tests', 240)
     if args.suite in ['users', 'all']:
         run_test([sys.executable, str(ROOT / 'tests/users_integration.py')], env, 'user-api-tests', 120)
         run_test([args.node, str(ROOT / 'tests/ui-users.cjs'), args.node_modules], env, 'user-browser-tests', 180)
