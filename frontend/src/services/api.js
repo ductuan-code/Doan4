@@ -62,7 +62,9 @@ export const reservationAPI = {
   create: (reservationData, key) => api.post('/reservations', reservationData, { headers: { 'Idempotency-Key': key } }),
   getMyReservations: (page = 1, pageSize = 20) => api.get('/reservations/my', { params: { page, pageSize } }),
   cancel: (id, key) => api.post(`/reservations/${id}/cancel`, null, { headers: { 'Idempotency-Key': key } }),
-  getById: (id) => api.get(`/reservations/${id}`)
+  getById: (id) => api.get(`/reservations/${id}`),
+  recordIssue: (id, data, key) => api.post(`/reservations/${id}/service-issue`, data, { headers: { 'Idempotency-Key': key } }),
+  markUnfulfilled: (id, data, key) => api.post(`/reservations/${id}/unfulfilled`, data, { headers: { 'Idempotency-Key': key } })
 }
 
 // Xe vào/ra và lịch sử; server giới hạn theo tài khoản.
@@ -73,7 +75,8 @@ export const sessionAPI = {
   getAll: params => api.get('/sessions', { params }),
   getById: id => api.get(`/sessions/${id}`),
   getFee: id => api.get(`/sessions/${id}/fee`),
-  checkOut: (id, data, key) => api.post(`/sessions/${id}/checkout`, data, { headers: { 'Idempotency-Key': key } })
+  checkOut: (id, data, key) => api.post(`/sessions/${id}/checkout`, data, { headers: { 'Idempotency-Key': key } }),
+  correctPlate: (id, data, key) => api.patch(`/sessions/${id}/plate`, data, { headers: { 'Idempotency-Key': key } })
 }
 
 export const dashboardAPI = { get: () => api.get('/dashboard') }
